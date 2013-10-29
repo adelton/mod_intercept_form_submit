@@ -1,0 +1,78 @@
+
+Apache module mod_intercept_form_submit
+=======================================
+
+Apache module to intercept submission of application login forms. It
+retrieves the login and password information from the POST HTTP
+request, runs PAM authentication with those credentials, and sets the
+REMOTE_USER environment variable if the authentication passes.
+
+Module configuration
+--------------------
+
+The module needs to be configured for Location that the application
+uses to process the login form POST requests. The configuration has to
+specify three values:
+
+    InterceptFormPAMService name_of_the_PAM_service
+
+      The PAM service to authenticate against.
+
+    InterceptFormLogin the_login_field_name
+
+      Name of the login field in the login form, and thus the login
+      parameter in the POST request.
+
+    InterceptFormPassword the_password_field_name
+
+      Name of the password field in the login form, and thus the
+      password parameter in the POST request.
+
+All three parameters need to be specified or the interception will not
+enabled.
+
+Example:
+
+    <Location /users/login>
+      InterceptFormPAMService http_application_sss
+      InterceptFormLogin login[login]
+      InterceptFormPassword login[password]
+    </Location>
+
+The PAM service needs to be configured. For the above shown
+http_application_sss example, file /etc/pam.d/http_application_sss
+could be created with content
+
+    auth    required   pam_sss.so
+
+to authenticate against sssd.
+
+On SELinux enabled systems, boolean allow_httpd_mod_auth_pam needs to
+be enabled:
+
+    setsebool -P allow_httpd_mod_auth_pam 1
+
+Building from sources
+---------------------
+
+When building from sources, command
+
+    apxs -i -a -c mod_intercept_form_submit.c -lpam -Wall -pedantic
+    
+License
+-------
+
+Copyright 2013 Jan Pazdziora
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
