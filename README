@@ -29,7 +29,7 @@ specify three values:
       password parameter in the POST request.
 
 All three parameters need to be specified or the interception will not
-enabled.
+be enabled.
 
 Example:
 
@@ -58,7 +58,9 @@ Building from sources
 When building from sources, command
 
     apxs -i -a -c mod_intercept_form_submit.c -lpam -Wall -pedantic
-    
+
+should build and install the module.
+
 License
 -------
 
