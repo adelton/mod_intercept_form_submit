@@ -320,11 +320,7 @@ static apr_status_t intercept_form_submit_filter(ap_filter_t * f, apr_bucket_bri
 }
 
 void * create_dir_conf(apr_pool_t * pool, char * dir) {
-	ifs_config * cfg = apr_pcalloc(pool, sizeof(ifs_config));
-	if (cfg) {
-		cfg->login_name = cfg->password_name = NULL;
-	}
-	return cfg;
+	return apr_pcalloc(pool, sizeof(ifs_config));
 }
 
 void * merge_dir_conf(apr_pool_t * pool, void * base_void, void * add_void) {
