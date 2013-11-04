@@ -31,12 +31,18 @@ specify three values:
 All three parameters need to be specified or the interception will not
 be enabled.
 
+Optionally, list of logins to ignore (never attempt to authenticate)
+can be specified:
+
+    InterceptFormLoginSkip one_login or_more_logins
+
 Example:
 
     <Location /users/login>
       InterceptFormPAMService http_application_sss
       InterceptFormLogin login[login]
       InterceptFormPassword login[password]
+      InterceptFormLoginSkip admin
     </Location>
 
 The PAM service needs to be configured. For the above shown

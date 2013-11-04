@@ -27,6 +27,7 @@ typedef struct ifs_config {
 	char * login_name;
 	char * password_name;
 	char * pam_service;
+	apr_hash_t * login_blacklist;
 } ifs_config;
 
 typedef struct {
@@ -64,10 +65,22 @@ const char * set_pam_service(cmd_parms * cmd, void * conf_void, const char * arg
 	return NULL;
 }
 
+const char * add_login_to_blacklist(cmd_parms * cmd, void * conf_void, const char * arg) {
+	ifs_config * cfg = (ifs_config *) conf_void;
+	if (cfg) {
+		if (! cfg->login_blacklist) {
+			cfg->login_blacklist = apr_hash_make(cmd->pool);
+		}
+		apr_hash_set(cfg->login_blacklist, apr_pstrdup(cmd->pool, arg), APR_HASH_KEY_STRING, "1");
+	}
+	return NULL;
+}
+
 static const command_rec directives[] = {
 	AP_INIT_TAKE1("InterceptFormLogin", set_login_name, NULL, ACCESS_CONF, "Name of the login parameter in the POST request"),
 	AP_INIT_TAKE1("InterceptFormPassword", set_password_name, NULL, ACCESS_CONF, "Name of the password parameter in the POST request"),
 	AP_INIT_TAKE1("InterceptFormPAMService", set_pam_service, NULL, ACCESS_CONF, "PAM service to authenticate against"),
+	AP_INIT_ITERATE("InterceptFormLoginSkip", add_login_to_blacklist, NULL, ACCESS_CONF, "Login name(s) for which no PAM authentication will be done"),
 	{ NULL }
 };
 
@@ -203,6 +216,12 @@ int intercept_form_submit_process_buffer(request_rec * r, ifs_filter_ctx_t * ctx
 		if (ctx->login_value) {
 			ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server,
 				"mod_intercept_form_submit: login found in POST: %s=%s", ctx->config->login_name, ctx->login_value);
+			if (ctx->config->login_blacklist && apr_hash_get(ctx->config->login_blacklist, ctx->login_value, APR_HASH_KEY_STRING)) {
+				ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server,
+					"mod_intercept_form_submit: login %s in blacklist, stopping", ctx->login_value);
+				ctx->no_more_filtering = 1;
+				return 1;
+			}
 			if (ctx->password_value) {
 				run_auth = 1;
 			}
@@ -315,6 +334,15 @@ void * merge_dir_conf(apr_pool_t * pool, void * base_void, void * add_void) {
 	cfg->login_name = add->login_name ? add->login_name : base->login_name;
 	cfg->password_name = add->password_name ? add->password_name : base->password_name;
 	cfg->pam_service = add->pam_service ? add->pam_service : base->pam_service;
+	if (add->login_blacklist) {
+		if (base->login_blacklist) {
+			cfg->login_blacklist = apr_hash_overlay(apr_hash_pool_get(add->login_blacklist), add->login_blacklist, base->login_blacklist);
+		} else {
+			cfg->login_blacklist = add->login_blacklist;
+		}
+	} else if (base->login_blacklist) {
+		cfg->login_blacklist = base->login_blacklist;
+	}
 	return cfg;
 }
 
