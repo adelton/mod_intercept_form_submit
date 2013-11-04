@@ -41,30 +41,6 @@ typedef struct {
 
 module AP_MODULE_DECLARE_DATA intercept_form_submit_module;
 
-const char * set_login_name(cmd_parms * cmd, void * conf_void, const char * arg) {
-	ifs_config * cfg = (ifs_config *) conf_void;
-	if (cfg) {
-		cfg->login_name = apr_pstrdup(cmd->pool, arg);
-	}
-	return NULL;
-}
-
-const char * set_password_name(cmd_parms * cmd, void * conf_void, const char * arg) {
-	ifs_config * cfg = (ifs_config *) conf_void;
-	if (cfg) {
-		cfg->password_name = apr_pstrdup(cmd->pool, arg);
-	}
-	return NULL;
-}
-
-const char * set_pam_service(cmd_parms * cmd, void * conf_void, const char * arg) {
-	ifs_config * cfg = (ifs_config *) conf_void;
-	if (cfg) {
-		cfg->pam_service = apr_pstrdup(cmd->pool, arg);
-	}
-	return NULL;
-}
-
 const char * add_login_to_blacklist(cmd_parms * cmd, void * conf_void, const char * arg) {
 	ifs_config * cfg = (ifs_config *) conf_void;
 	if (cfg) {
@@ -77,9 +53,9 @@ const char * add_login_to_blacklist(cmd_parms * cmd, void * conf_void, const cha
 }
 
 static const command_rec directives[] = {
-	AP_INIT_TAKE1("InterceptFormLogin", set_login_name, NULL, ACCESS_CONF, "Name of the login parameter in the POST request"),
-	AP_INIT_TAKE1("InterceptFormPassword", set_password_name, NULL, ACCESS_CONF, "Name of the password parameter in the POST request"),
-	AP_INIT_TAKE1("InterceptFormPAMService", set_pam_service, NULL, ACCESS_CONF, "PAM service to authenticate against"),
+	AP_INIT_TAKE1("InterceptFormLogin", ap_set_string_slot, (void *)APR_OFFSETOF(ifs_config, login_name), ACCESS_CONF, "Name of the login parameter in the POST request"),
+	AP_INIT_TAKE1("InterceptFormPassword", ap_set_string_slot, (void *)APR_OFFSETOF(ifs_config, password_name), ACCESS_CONF, "Name of the password parameter in the POST request"),
+	AP_INIT_TAKE1("InterceptFormPAMService", ap_set_string_slot, (void *)APR_OFFSETOF(ifs_config, pam_service), ACCESS_CONF, "PAM service to authenticate against"),
 	AP_INIT_ITERATE("InterceptFormLoginSkip", add_login_to_blacklist, NULL, ACCESS_CONF, "Login name(s) for which no PAM authentication will be done"),
 	{ NULL }
 };
