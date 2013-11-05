@@ -31,12 +31,8 @@ typedef struct ifs_config {
 } ifs_config;
 
 typedef struct {
-	int no_more_filtering;
-	char * fragment;
-	int fragment_length;
-	char * login_value;
-	char * password_value;
-	ifs_config * config;
+	apr_status_t cached_ret;
+	apr_bucket_brigade * cached_brigade;
 } ifs_filter_ctx_t;
 
 module AP_MODULE_DECLARE_DATA intercept_form_submit_module;
@@ -81,13 +77,13 @@ int pam_authenticate_conv(int num_msg, const struct pam_message ** msg, struct p
 	return PAM_SUCCESS;
 }
 
-int pam_authenticate_with_login_password(request_rec * r, ifs_config * config, char * login, char * password) {
+int pam_authenticate_with_login_password(request_rec * r, const char * pam_service, const char * login, const char * password) {
 	pam_handle_t * pamh = NULL;
 	struct pam_conv pam_conversation = { &pam_authenticate_conv, (void *) password };
 	int ret;
-	if ((ret = pam_start(config->pam_service, login, &pam_conversation, &pamh)) != PAM_SUCCESS) {
+	if ((ret = pam_start(pam_service, login, &pam_conversation, &pamh)) != PAM_SUCCESS) {
 		ap_log_error(APLOG_MARK, APLOG_WARNING, 0, r->server,
-			"mod_intercept_form_submit: PAM transaction failed for service %s: %s", config->pam_service, pam_strerror(pamh, ret));
+			"mod_intercept_form_submit: PAM transaction failed for service %s: %s", pam_service, pam_strerror(pamh, ret));
 		pam_end(pamh, ret);
 		return 0;
 	}
@@ -101,27 +97,6 @@ int pam_authenticate_with_login_password(request_rec * r, ifs_config * config, c
 	ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, r->server, "mod_intercept_form_submit: PAM authentication passed for user %s", login);
 	pam_end(pamh, ret);
 	return 1;
-}
-
-#define _INTERCEPT_CONTENT_TYPE "application/x-www-form-urlencoded"
-void intercept_form_submit_init(request_rec * r) {
-	ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: intercept_form_submit_init invoked");
-	if (r->method_number != M_POST) {
-		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: skipping, no POST request");
-		return;
-	}
-	ifs_config * config = ap_get_module_config(r->per_dir_config, &intercept_form_submit_module);
-	if (!(config && config->login_name && config->password_name && config->pam_service)) {
-		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: skipping, not configured");
-		return;
-	}
-	const char * content_type = apr_table_get(r->headers_in, "Content-Type");
-	if (content_type && !apr_strnatcasecmp(content_type, _INTERCEPT_CONTENT_TYPE)) {
-		ap_add_input_filter("intercept_form_submit_filter", NULL, r, r->connection);
-		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: inserted filter intercept_form_submit_filter");
-	} else {
-		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: skipping, no " _INTERCEPT_CONTENT_TYPE);
-	}
 }
 
 int hex2char(int c) {
@@ -180,43 +155,42 @@ char * intercept_form_submit_process_keyval(apr_pool_t * pool, const char * name
 	return ret;
 }
 
-int intercept_form_submit_process_buffer(request_rec * r, ifs_filter_ctx_t * ctx, const char * buffer, int buffer_length) {
+int intercept_form_submit_process_buffer(request_rec * r, ifs_config * config, char ** login_value, char ** password_value,
+	const char * buffer, int buffer_length) {
 	char * sep = memchr(buffer, '=', buffer_length);
 	if (! sep) {
 		return 0;
 	}
 	int run_auth = 0;
-	if (! ctx->login_value) {
-		ctx->login_value = intercept_form_submit_process_keyval(r->pool, ctx->config->login_name,
+	if (! *login_value) {
+		*login_value = intercept_form_submit_process_keyval(r->pool, config->login_name,
 			buffer, sep - buffer, sep + 1, buffer_length - (sep - buffer) - 1);
-		if (ctx->login_value) {
+		if (*login_value) {
 			ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server,
-				"mod_intercept_form_submit: login found in POST: %s=%s", ctx->config->login_name, ctx->login_value);
-			if (ctx->config->login_blacklist && apr_hash_get(ctx->config->login_blacklist, ctx->login_value, APR_HASH_KEY_STRING)) {
+				"mod_intercept_form_submit: login found in POST: %s=%s", config->login_name, *login_value);
+			if (config->login_blacklist && apr_hash_get(config->login_blacklist, *login_value, APR_HASH_KEY_STRING)) {
 				ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server,
-					"mod_intercept_form_submit: login %s in blacklist, stopping", ctx->login_value);
-				ctx->no_more_filtering = 1;
+					"mod_intercept_form_submit: login %s in blacklist, stopping", *login_value);
 				return 1;
 			}
-			if (ctx->password_value) {
+			if (*password_value) {
 				run_auth = 1;
 			}
 		}
 	}
-	if (! ctx->password_value) {
-		ctx->password_value = intercept_form_submit_process_keyval(r->pool, ctx->config->password_name,
+	if (! *password_value) {
+		*password_value = intercept_form_submit_process_keyval(r->pool, config->password_name,
 			buffer, sep - buffer, sep + 1, buffer_length - (sep - buffer) - 1);
-		if (ctx->password_value) {
+		if (*password_value) {
 			ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server,
-				"mod_intercept_form_submit: password found in POST: %s=[REDACTED]", ctx->config->password_name);
-			if (ctx->login_value) {
+				"mod_intercept_form_submit: password found in POST: %s=[REDACTED]", config->password_name);
+			if (*login_value) {
 				run_auth = 1;
 			}
 		}
 	}
 	if (run_auth) {
-		pam_authenticate_with_login_password(r, ctx->config, ctx->login_value, ctx->password_value);
-		ctx->no_more_filtering = 1;
+		pam_authenticate_with_login_password(r, config->pam_service, *login_value, *password_value);
 		return 1;
 	}
 	return 0;
@@ -224,75 +198,130 @@ int intercept_form_submit_process_buffer(request_rec * r, ifs_filter_ctx_t * ctx
 
 static apr_status_t intercept_form_submit_filter(ap_filter_t * f, apr_bucket_brigade * bb,
 	ap_input_mode_t mode, apr_read_type_e block, apr_off_t readbytes) {
-	apr_status_t ret = ap_get_brigade(f->next, bb, mode, block, readbytes);
-	if (ret != APR_SUCCESS) {
-		return ret;
+	ifs_filter_ctx_t * ctx = f->ctx;
+	if (ctx && ctx->cached_brigade) {
+		APR_BRIGADE_CONCAT(bb, ctx->cached_brigade);
+		apr_brigade_cleanup(ctx->cached_brigade);
+		ctx->cached_brigade = NULL;
+		return ctx->cached_ret;
 	}
+	return ap_get_brigade(f->next, bb, mode, block, readbytes);
+}
+
+void intercept_form_submit_filter_prefetch(request_rec * r, ifs_config * config, ap_filter_t * f) {
+	if (r->status != 200)
+		return;
 
 	ifs_filter_ctx_t * ctx = f->ctx;
 	if (! ctx) {
-		ctx = f->ctx = apr_pcalloc(f->r->pool, sizeof(ifs_filter_ctx_t));
-		ctx->config = ap_get_module_config(f->r->per_dir_config, &intercept_form_submit_module);
+		f->ctx = ctx = apr_pcalloc(r->pool, sizeof(ifs_filter_ctx_t));
+		ctx->cached_brigade = apr_brigade_create(f->c->pool, f->c->bucket_alloc);
 	}
 
-	apr_bucket * b;
-	for (b = APR_BRIGADE_FIRST(bb); b != APR_BRIGADE_SENTINEL(bb); b = APR_BUCKET_NEXT(b)) {
-		if (ctx->no_more_filtering)
-			break;
-		if (APR_BUCKET_IS_EOS(b)) {
-			if (ctx->fragment) {
-				intercept_form_submit_process_buffer(f->r, ctx, ctx->fragment, ctx->fragment_length);
-				ctx->no_more_filtering = 1;
-			}
-			ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, f->r->server, "mod_intercept_form_submit: hit EOS");
-			break;
-		}
-		if (APR_BUCKET_IS_METADATA(b))
-			continue;
+	char * login_value = NULL;
+	char * password_value = NULL;
 
-		const char * buffer;
-		apr_size_t nbytes;
-		if (apr_bucket_read(b, &buffer, &nbytes, APR_BLOCK_READ) != APR_SUCCESS)
-			continue;
-		if (! nbytes)
-			continue;
+	char * fragment = NULL;
+	int fragment_length = 0;
 
-		const char * p = buffer;
-		const char * e;
-		while ((nbytes > 0) && (e = memchr(p, '&', nbytes))) {
-			if (ctx->fragment) {
-				int new_length = ctx->fragment_length + (e - p);
-				ctx->fragment = realloc(ctx->fragment, new_length);
-				memcpy(ctx->fragment + ctx->fragment_length, p, e - p);
-				if (intercept_form_submit_process_buffer(f->r, ctx, ctx->fragment, new_length))
-					break;
-				free(ctx->fragment);
-				ctx->fragment = NULL;
-			} else {
-				if (intercept_form_submit_process_buffer(f->r, ctx, p, e - p))
-					break;
-			}
-			nbytes -= (e - p) + 1;
-			p = e + 1;
-		}
-		if (ctx->no_more_filtering)
+	apr_bucket_brigade * bb = NULL;
+	int fetch_more = 1;
+	while (fetch_more) {
+		if (bb)
+			APR_BRIGADE_CONCAT(ctx->cached_brigade, bb);
+		else
+			bb = apr_brigade_create(f->c->pool, f->c->bucket_alloc);
+		ctx->cached_ret = ap_get_brigade(f->next, bb, AP_MODE_READBYTES, APR_BLOCK_READ, HUGE_STRING_LEN);
+		if (ctx->cached_ret != APR_SUCCESS)
 			break;
-		if (nbytes > 0) {
-			if (APR_BUCKET_NEXT(b) && APR_BUCKET_IS_EOS(APR_BUCKET_NEXT(b))) {
-				/* shortcut if this is the last bucket, slurp the rest */
-				intercept_form_submit_process_buffer(f->r, ctx, p, nbytes);
-			} else {
-				ctx->fragment = malloc(nbytes);
-				memcpy(ctx->fragment, p, nbytes);
-				ctx->fragment_length = nbytes;
+
+		apr_bucket * b;
+		for (b = APR_BRIGADE_FIRST(bb); b != APR_BRIGADE_SENTINEL(bb); b = APR_BUCKET_NEXT(b)) {
+			if (! fetch_more)
+				break;
+			if (APR_BUCKET_IS_EOS(b)) {
+				if (fragment)
+					intercept_form_submit_process_buffer(r, config, &login_value, &password_value, fragment, fragment_length);
+				ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: hit EOS");
+				fetch_more = 0;
+				break;
+			}
+			if (APR_BUCKET_IS_METADATA(b))
+				continue;
+
+			const char * buffer;
+			apr_size_t nbytes;
+			if (apr_bucket_read(b, &buffer, &nbytes, APR_BLOCK_READ) != APR_SUCCESS)
+				continue;
+			if (! nbytes)
+				continue;
+
+			const char * p = buffer;
+			const char * e;
+			while ((nbytes > 0) && (e = memchr(p, '&', nbytes))) {
+				if (fragment) {
+					int new_length = fragment_length + (e - p);
+					fragment = realloc(fragment, new_length);
+					memcpy(fragment + fragment_length, p, e - p);
+					if (intercept_form_submit_process_buffer(r, config, &login_value, &password_value, fragment, new_length)) {
+						fetch_more = 0;
+						break;
+					}
+					free(fragment);
+					fragment = NULL;
+				} else {
+					if (intercept_form_submit_process_buffer(r, config, &login_value, &password_value, p, e - p)) {
+						fetch_more = 0;
+						break;
+					}
+				}
+				nbytes -= (e - p) + 1;
+				p = e + 1;
+			}
+			if (! fetch_more)
+				break;
+			if (nbytes > 0) {
+				if (APR_BUCKET_NEXT(b) && APR_BUCKET_IS_EOS(APR_BUCKET_NEXT(b))) {
+					/* shortcut if this is the last bucket, slurp the rest */
+					intercept_form_submit_process_buffer(r, config, &login_value, &password_value, p, nbytes);
+					fetch_more = 0;
+				} else {
+					fragment = malloc(nbytes);
+					memcpy(fragment, p, nbytes);
+					fragment_length = nbytes;
+				}
 			}
 		}
 	}
-	if (ctx->no_more_filtering && ctx->fragment) {
-		free(ctx->fragment);
-		ctx->fragment = NULL;
+	if (fragment)
+		free(fragment);
+
+	if (bb) {
+		APR_BRIGADE_CONCAT(ctx->cached_brigade, bb);
+		apr_brigade_cleanup(bb);
 	}
-	return APR_SUCCESS;
+}
+
+#define _INTERCEPT_CONTENT_TYPE "application/x-www-form-urlencoded"
+void intercept_form_submit_init(request_rec * r) {
+	ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: intercept_form_submit_init invoked");
+	if (r->method_number != M_POST) {
+		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: skipping, no POST request");
+		return;
+	}
+	ifs_config * config = ap_get_module_config(r->per_dir_config, &intercept_form_submit_module);
+	if (!(config && config->login_name && config->password_name && config->pam_service)) {
+		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: skipping, not configured");
+		return;
+	}
+	const char * content_type = apr_table_get(r->headers_in, "Content-Type");
+	if (content_type && !apr_strnatcasecmp(content_type, _INTERCEPT_CONTENT_TYPE)) {
+		ap_filter_t * the_filter = ap_add_input_filter("intercept_form_submit_filter", NULL, r, r->connection);
+		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: inserted filter intercept_form_submit_filter, starting intercept_form_submit_filter_prefetch");
+		intercept_form_submit_filter_prefetch(r, config, the_filter);
+	} else {
+		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: skipping, no " _INTERCEPT_CONTENT_TYPE);
+	}
 }
 
 void * create_dir_conf(apr_pool_t * pool, char * dir) {
