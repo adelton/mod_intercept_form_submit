@@ -5,7 +5,9 @@ Apache module mod_intercept_form_submit
 Apache module to intercept submission of application login forms. It
 retrieves the login and password information from the POST HTTP
 request, runs PAM authentication with those credentials, and sets the
-REMOTE_USER environment variable if the authentication passes.
+REMOTE_USER environment variable if the authentication passes. If the
+REMOTE_USER is already set (presumably by some previous module), no
+authentication takes place.
 
 Module configuration
 --------------------

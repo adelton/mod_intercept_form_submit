@@ -77,6 +77,7 @@ int pam_authenticate_conv(int num_msg, const struct pam_message ** msg, struct p
 	return PAM_SUCCESS;
 }
 
+#define _REMOTE_USER_ENV_NAME "REMOTE_USER"
 int pam_authenticate_with_login_password(request_rec * r, const char * pam_service, const char * login, const char * password) {
 	pam_handle_t * pamh = NULL;
 	struct pam_conv pam_conversation = { &pam_authenticate_conv, (void *) password };
@@ -93,7 +94,7 @@ int pam_authenticate_with_login_password(request_rec * r, const char * pam_servi
 		pam_end(pamh, ret);
 		return 0;
 	}
-	apr_table_setn(r->subprocess_env, "REMOTE_USER", login);
+	apr_table_setn(r->subprocess_env, _REMOTE_USER_ENV_NAME, login);
 	ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, r->server, "mod_intercept_form_submit: PAM authentication passed for user %s", login);
 	pam_end(pamh, ret);
 	return 1;
@@ -312,6 +313,10 @@ void intercept_form_submit_init(request_rec * r) {
 	ifs_config * config = ap_get_module_config(r->per_dir_config, &intercept_form_submit_module);
 	if (!(config && config->login_name && config->password_name && config->pam_service)) {
 		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: skipping, not configured");
+		return;
+	}
+	if (apr_table_get(r->subprocess_env, _REMOTE_USER_ENV_NAME)) {
+		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: skipping, " _REMOTE_USER_ENV_NAME " already set");
 		return;
 	}
 	const char * content_type = apr_table_get(r->headers_in, "Content-Type");
