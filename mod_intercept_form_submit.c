@@ -243,7 +243,7 @@ void intercept_form_submit_filter_prefetch(request_rec * r, ifs_config * config,
 			if (APR_BUCKET_IS_EOS(b)) {
 				if (fragment)
 					intercept_form_submit_process_buffer(r, config, &login_value, &password_value, fragment, fragment_length);
-				ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: hit EOS");
+				ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "hit EOS");
 				fetch_more = 0;
 				break;
 			}
@@ -305,27 +305,27 @@ void intercept_form_submit_filter_prefetch(request_rec * r, ifs_config * config,
 
 #define _INTERCEPT_CONTENT_TYPE "application/x-www-form-urlencoded"
 void intercept_form_submit_init(request_rec * r) {
-	ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: intercept_form_submit_init invoked");
+	ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "intercept_form_submit_init invoked");
 	if (r->method_number != M_POST) {
-		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: skipping, no POST request");
+		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "skipping, no POST request");
 		return;
 	}
 	ifs_config * config = ap_get_module_config(r->per_dir_config, &intercept_form_submit_module);
 	if (!(config && config->login_name && config->password_name && config->pam_service)) {
-		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: skipping, not configured");
+		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "skipping, not configured");
 		return;
 	}
 	if (apr_table_get(r->subprocess_env, _REMOTE_USER_ENV_NAME)) {
-		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: skipping, " _REMOTE_USER_ENV_NAME " already set");
+		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "skipping, " _REMOTE_USER_ENV_NAME " already set");
 		return;
 	}
 	const char * content_type = apr_table_get(r->headers_in, "Content-Type");
 	if (content_type && !apr_strnatcasecmp(content_type, _INTERCEPT_CONTENT_TYPE)) {
 		ap_filter_t * the_filter = ap_add_input_filter("intercept_form_submit_filter", NULL, r, r->connection);
-		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: inserted filter intercept_form_submit_filter, starting intercept_form_submit_filter_prefetch");
+		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "inserted filter intercept_form_submit_filter, starting intercept_form_submit_filter_prefetch");
 		intercept_form_submit_filter_prefetch(r, config, the_filter);
 	} else {
-		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "mod_intercept_form_submit: skipping, no " _INTERCEPT_CONTENT_TYPE);
+		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "skipping, no " _INTERCEPT_CONTENT_TYPE);
 	}
 }
 
