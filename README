@@ -9,6 +9,10 @@ REMOTE_USER environment variable if the authentication passes. If the
 REMOTE_USER is already set (presumably by some previous module), no
 authentication takes place.
 
+The assumption is that the application will be amended to trust the
+REMOTE_USER value if it is set and skip its own login/password
+validation (see the docs/ directory for outline of the interaction).
+
 Module configuration
 --------------------
 

@@ -1,0 +1,55 @@
+
+1. User accesses application's URL: http://app.example.com/hosts
+	2. Browser issues HTTP GET request
+	   to app.exmple.com for /hosts
+
+		--- GET /hosts --->
+
+				3. Apache runs or hands the request over
+				   to application
+					4. Application does not find
+					   valid session cookie
+					5. Application redirects the
+					   browser to logon page
+
+	<--- 302 Location /login?back=/hosts ---
+
+	6. Browser accesses the logon page /login
+
+		--- GET /login?back=/hosts --->
+
+				7. Apache runs or hands the request over
+				   to application
+					8. Application does not see POST
+					   with login & password
+					9. Application returns logon form
+
+	<--- 200 + page with logon form, action set back to /login ---
+
+10. User fills in the login and password and hits "Log in"
+	11. Browser submits the form
+
+		--- POST /login --->
+	
+				12. Apache runs or hands the request over
+				    to application
+					13. Application validates the
+					    login & password; if they
+					    are not valid, go to 9 with
+					    message "Bad login or password"
+					14. Application creates session,
+					    returns session cookies
+
+	<--- 302 Login /hosts with Set-Cookie ---
+
+	15. Like 2, now with Cookie set
+
+		--- GET /hosts --->
+
+				16. Apache runs or hands the request over
+				    to application
+					17. Application sees valid session
+					    cookie, returns the page
+
+	<--- 200 + the /hosts page that user wanted to see ---
+
