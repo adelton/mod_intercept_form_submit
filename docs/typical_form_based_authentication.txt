@@ -40,7 +40,7 @@
 					14. Application creates session,
 					    returns session cookies
 
-	<--- 302 Login /hosts with Set-Cookie ---
+	<--- 302 Location /hosts with Set-Cookie ---
 
 	15. Like 2, now with Cookie set
 
