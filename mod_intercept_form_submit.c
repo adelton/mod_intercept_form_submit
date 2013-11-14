@@ -78,7 +78,7 @@ int pam_authenticate_conv(int num_msg, const struct pam_message ** msg, struct p
 }
 
 #define _REMOTE_USER_ENV_NAME "REMOTE_USER"
-int pam_authenticate_with_login_password(request_rec * r, const char * pam_service, const char * login, const char * password) {
+int pam_authenticate_with_login_password(request_rec * r, const char * pam_service, char * login, const char * password) {
 	pam_handle_t * pamh = NULL;
 	struct pam_conv pam_conversation = { &pam_authenticate_conv, (void *) password };
 	int ret;
@@ -95,6 +95,7 @@ int pam_authenticate_with_login_password(request_rec * r, const char * pam_servi
 		return 0;
 	}
 	apr_table_setn(r->subprocess_env, _REMOTE_USER_ENV_NAME, login);
+	r->user = login;
 	ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, r->server, "mod_intercept_form_submit: PAM authentication passed for user %s", login);
 	pam_end(pamh, ret);
 	return 1;
