@@ -9,7 +9,8 @@ REMOTE_USER environment variable if the authentication passes. The
 internal r->user field is also set so other modules can use it (even
 if the module is invoked very late in the request processing). If the
 REMOTE_USER is already set (presumably by some previous module), no
-authentication takes place.
+authentication takes place. If the PAM authentication fails, environment
+variable EXTERNAL_AUTH_ERROR is set to the string describing the error.
 
 The assumption is that the application will be amended to trust the
 REMOTE_USER value if it is set and skip its own login/password
