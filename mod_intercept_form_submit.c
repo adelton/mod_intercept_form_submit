@@ -16,6 +16,7 @@
  */
 
 #include "apr_strings.h"
+#include "apr_optional.h"
 #include "http_core.h"
 #include "http_log.h"
 #include "http_config.h"
@@ -36,6 +37,9 @@ typedef struct {
 } ifs_filter_ctx_t;
 
 module AP_MODULE_DECLARE_DATA intercept_form_submit_module;
+
+APR_DECLARE_OPTIONAL_FN(int, lookup_identity_hook, (request_rec * r));
+static APR_OPTIONAL_FN_TYPE(lookup_identity_hook) * lookup_identity_hook_fn = NULL;
 
 const char * add_login_to_blacklist(cmd_parms * cmd, void * conf_void, const char * arg) {
 	ifs_config * cfg = (ifs_config *) conf_void;
@@ -103,7 +107,16 @@ int pam_authenticate_with_login_password(request_rec * r, const char * pam_servi
 	r->user = login;
 	ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, r->server, "mod_intercept_form_submit: PAM authentication passed for user %s", login);
 	pam_end(pamh, ret);
+	if (lookup_identity_hook_fn) {
+		ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "calling lookup_identity_hook");
+		lookup_identity_hook_fn(r);
+	} else {
+		ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "not calling lookup_identity_hook, is NULL");
+	}
 	return 1;
+}
+void register_lookup_identity_hook_fn(void) {
+	lookup_identity_hook_fn = APR_RETRIEVE_OPTIONAL_FN(lookup_identity_hook);
 }
 
 int hex2char(int c) {
@@ -361,6 +374,7 @@ void * merge_dir_conf(apr_pool_t * pool, void * base_void, void * add_void) {
 static void register_hooks(apr_pool_t * pool) {
 	ap_hook_insert_filter(intercept_form_submit_init, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_register_input_filter("intercept_form_submit_filter", intercept_form_submit_filter, NULL, AP_FTYPE_RESOURCE);
+	ap_hook_optional_fn_retrieve(register_lookup_identity_hook_fn, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
 module AP_MODULE_DECLARE_DATA intercept_form_submit_module = {
