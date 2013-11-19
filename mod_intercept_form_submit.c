@@ -301,7 +301,12 @@ void intercept_form_submit_filter_prefetch(request_rec * r, ifs_config * config,
 			if (! fetch_more)
 				break;
 			if (nbytes > 0) {
-				if (APR_BUCKET_NEXT(b) && APR_BUCKET_IS_EOS(APR_BUCKET_NEXT(b))) {
+				if (fragment) {
+					int new_length = fragment_length + nbytes;
+					fragment = realloc(fragment, new_length);
+					memcpy(fragment + fragment_length, p, nbytes);
+					fragment_length = new_length;
+				} else if (APR_BUCKET_NEXT(b) && APR_BUCKET_IS_EOS(APR_BUCKET_NEXT(b))) {
 					/* shortcut if this is the last bucket, slurp the rest */
 					intercept_form_submit_process_buffer(r, config, &login_value, &password_value, p, nbytes);
 					fetch_more = 0;
