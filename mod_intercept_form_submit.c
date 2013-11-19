@@ -30,6 +30,7 @@ typedef struct ifs_config {
 	int password_redact;
 	char * pam_service;
 	apr_hash_t * login_blacklist;
+	int clear_blacklisted;
 } ifs_config;
 
 typedef struct {
@@ -61,6 +62,7 @@ static const command_rec directives[] = {
 	AP_INIT_FLAG("InterceptFormPasswordRedact", ap_set_flag_slot, (void *)APR_OFFSETOF(ifs_config, password_redact), ACCESS_CONF, "When password is seen in the POST for non-blacklisted user, the value will be redacted"),
 	AP_INIT_TAKE1("InterceptFormPAMService", ap_set_string_slot, (void *)APR_OFFSETOF(ifs_config, pam_service), ACCESS_CONF, "PAM service to authenticate against"),
 	AP_INIT_ITERATE("InterceptFormLoginSkip", add_login_to_blacklist, NULL, ACCESS_CONF, "Login name(s) for which no PAM authentication will be done"),
+	AP_INIT_FLAG("InterceptFormClearRemoteUserForSkipped", ap_set_flag_slot, (void *)APR_OFFSETOF(ifs_config, clear_blacklisted), ACCESS_CONF, "When authentication is skipped for users listed with InterceptFormLoginSkip, clear r->user and REMOTE_USER"),
 	{ NULL }
 };
 
@@ -262,6 +264,10 @@ int intercept_form_submit_process_buffer(ap_filter_t * f, ifs_config * config, c
 			if (config->login_blacklist && apr_hash_get(config->login_blacklist, *login_value, APR_HASH_KEY_STRING)) {
 				ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server,
 					"mod_intercept_form_submit: login %s in blacklist, stopping", *login_value);
+				if (config->clear_blacklisted > 0) {
+					apr_table_unset(r->subprocess_env, _REMOTE_USER_ENV_NAME);
+					r->user = NULL;
+				}
 				return 1;
 			}
 			if (*password_value) {
@@ -433,6 +439,7 @@ void intercept_form_submit_init(request_rec * r) {
 void * create_dir_conf(apr_pool_t * pool, char * dir) {
 	ifs_config * cfg = apr_pcalloc(pool, sizeof(ifs_config));
 	cfg->password_redact = -1;
+	cfg->clear_blacklisted = -1;
 	return cfg;
 }
 
@@ -443,6 +450,7 @@ void * merge_dir_conf(apr_pool_t * pool, void * base_void, void * add_void) {
 	cfg->login_name = add->login_name ? add->login_name : base->login_name;
 	cfg->password_name = add->password_name ? add->password_name : base->password_name;
 	cfg->password_redact = add->password_redact >= 0 ? add->password_redact : base->password_redact;
+	cfg->clear_blacklisted = add->clear_blacklisted >= 0 ? add->clear_blacklisted : base->clear_blacklisted;
 	cfg->pam_service = add->pam_service ? add->pam_service : base->pam_service;
 	if (add->login_blacklist) {
 		if (base->login_blacklist) {

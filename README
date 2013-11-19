@@ -53,6 +53,14 @@ Optional parameters:
 
       By default authentication will be attempted for all logins.
 
+    InterceptFormClearRemoteUserForSkipped on|off
+
+      When set to on and authentication is skipped for users
+      listed with InterceptFormLoginSkip, clears r->user and
+      REMOTE_USER.
+
+      Default is off.
+
     InterceptFormPasswordRedact on|off
 
       When set to on and authentication is attempted (no matter
@@ -68,6 +76,7 @@ Example:
       InterceptFormLogin login[login]
       InterceptFormPassword login[password]
       InterceptFormLoginSkip admin
+      InterceptFormClearRemoteUserForSkipped on
       InterceptFormPasswordRedact on
     </Location>
 
