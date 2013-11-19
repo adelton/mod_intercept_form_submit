@@ -27,6 +27,7 @@
 typedef struct ifs_config {
 	char * login_name;
 	char * password_name;
+	int password_redact;
 	char * pam_service;
 	apr_hash_t * login_blacklist;
 } ifs_config;
@@ -34,6 +35,8 @@ typedef struct ifs_config {
 typedef struct {
 	apr_status_t cached_ret;
 	apr_bucket_brigade * cached_brigade;
+	apr_bucket * password_fragment_start_bucket;
+	int password_fragment_start_bucket_offset;
 } ifs_filter_ctx_t;
 
 module AP_MODULE_DECLARE_DATA intercept_form_submit_module;
@@ -55,6 +58,7 @@ const char * add_login_to_blacklist(cmd_parms * cmd, void * conf_void, const cha
 static const command_rec directives[] = {
 	AP_INIT_TAKE1("InterceptFormLogin", ap_set_string_slot, (void *)APR_OFFSETOF(ifs_config, login_name), ACCESS_CONF, "Name of the login parameter in the POST request"),
 	AP_INIT_TAKE1("InterceptFormPassword", ap_set_string_slot, (void *)APR_OFFSETOF(ifs_config, password_name), ACCESS_CONF, "Name of the password parameter in the POST request"),
+	AP_INIT_FLAG("InterceptFormPasswordRedact", ap_set_flag_slot, (void *)APR_OFFSETOF(ifs_config, password_redact), ACCESS_CONF, "When password is seen in the POST for non-blacklisted user, the value will be redacted"),
 	AP_INIT_TAKE1("InterceptFormPAMService", ap_set_string_slot, (void *)APR_OFFSETOF(ifs_config, pam_service), ACCESS_CONF, "PAM service to authenticate against"),
 	AP_INIT_ITERATE("InterceptFormLoginSkip", add_login_to_blacklist, NULL, ACCESS_CONF, "Login name(s) for which no PAM authentication will be done"),
 	{ NULL }
@@ -175,12 +179,79 @@ char * intercept_form_submit_process_keyval(apr_pool_t * pool, const char * name
 	return ret;
 }
 
-int intercept_form_submit_process_buffer(request_rec * r, ifs_config * config, char ** login_value, char ** password_value,
-	const char * buffer, int buffer_length) {
+#define _REDACTED_STRING "[REDACTED]"
+void intercept_form_redact_password(ap_filter_t * f, ifs_config * config) {
+	request_rec * r = f->r;
+	ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "will redact password (value of %s) in the POST data", config->password_name);
+	ifs_filter_ctx_t * ctx = f->ctx;
+	apr_bucket * b = ctx->password_fragment_start_bucket;
+	int fragment_start_bucket_offset = ctx->password_fragment_start_bucket_offset;
+	if (fragment_start_bucket_offset) {
+		apr_bucket_split(b, fragment_start_bucket_offset);
+		b = APR_BUCKET_NEXT(b);
+	}
+	char * new_password_data = apr_pstrcat(r->pool, config->password_name, "=", _REDACTED_STRING, NULL);
+	int new_password_data_length = strlen(new_password_data);
+	apr_bucket * new_b = apr_bucket_immortal_create(new_password_data, new_password_data_length, f->c->bucket_alloc);
+	APR_BUCKET_INSERT_BEFORE(b, new_b);
+
+	int password_remove_length = 0;
+	apr_bucket * remove_b = NULL;
+	do {
+		if (remove_b) {
+			apr_bucket_delete(remove_b);
+			remove_b = NULL;
+		}
+		if (b == APR_BRIGADE_SENTINEL(ctx->cached_brigade)) {
+			break;
+		}
+		if (APR_BUCKET_IS_METADATA(b))
+			continue;
+		const char * buffer;
+		apr_size_t nbytes;
+		if (apr_bucket_read(b, &buffer, &nbytes, APR_BLOCK_READ) != APR_SUCCESS)
+			continue;
+		if (! nbytes)
+			continue;
+
+		const char * e = memchr(buffer, '&', nbytes);
+		if (e) {
+			password_remove_length += (e - buffer);
+			remove_b = b;
+			apr_bucket_split(b, (e - buffer));
+			break;
+		} else {
+			password_remove_length += nbytes;
+			remove_b = b;
+		}
+	} while ((b = APR_BUCKET_NEXT(b)));
+	if (remove_b) {
+		apr_bucket_delete(remove_b);
+	}
+
+	if (password_remove_length != new_password_data_length) {
+		const char * orig_content_length = apr_table_get(r->headers_in, "Content-Length");
+		if (orig_content_length) {
+			char * end;
+			apr_off_t content_length;
+			apr_status_t status = apr_strtoff(&content_length, orig_content_length, &end, 10);
+			if (status != APR_SUCCESS || *end || end == orig_content_length || content_length < 0) {
+				ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "Failed to parse the original Content-Length value %s, cannot update it after redacting password, clearing", orig_content_length);
+				apr_table_unset(r->headers_in, "Content-Length");
+			} else {
+				apr_table_setn(r->headers_in, "Content-Length", apr_psprintf(r->pool, "%ld", content_length - password_remove_length + new_password_data_length));
+			}
+		}
+	}
+}
+
+int intercept_form_submit_process_buffer(ap_filter_t * f, ifs_config * config, char ** login_value, char ** password_value,
+	const char * buffer, int buffer_length, apr_bucket * fragment_start_bucket, int fragment_start_bucket_offset) {
 	char * sep = memchr(buffer, '=', buffer_length);
 	if (! sep) {
 		return 0;
 	}
+	request_rec * r = f->r;
 	int run_auth = 0;
 	if (! *login_value) {
 		*login_value = intercept_form_submit_process_keyval(r->pool, config->login_name,
@@ -203,14 +274,20 @@ int intercept_form_submit_process_buffer(request_rec * r, ifs_config * config, c
 			buffer, sep - buffer, sep + 1, buffer_length - (sep - buffer) - 1);
 		if (*password_value) {
 			ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server,
-				"mod_intercept_form_submit: password found in POST: %s=[REDACTED]", config->password_name);
+				"mod_intercept_form_submit: password found in POST: %s=" _REDACTED_STRING, config->password_name);
 			if (*login_value) {
 				run_auth = 1;
 			}
+			ifs_filter_ctx_t * ctx = f->ctx;
+			ctx->password_fragment_start_bucket = fragment_start_bucket;
+			ctx->password_fragment_start_bucket_offset = fragment_start_bucket_offset;
 		}
 	}
 	if (run_auth) {
 		pam_authenticate_with_login_password(r, config->pam_service, *login_value, *password_value);
+		if (config->password_redact > 0) {
+			intercept_form_redact_password(f, config);
+		}
 		return 1;
 	}
 	return 0;
@@ -243,6 +320,8 @@ void intercept_form_submit_filter_prefetch(request_rec * r, ifs_config * config,
 
 	char * fragment = NULL;
 	int fragment_length = 0;
+	apr_bucket * fragment_start_bucket = NULL;
+	int fragment_start_bucket_offset = 0;
 
 	apr_bucket_brigade * bb = apr_brigade_create(f->c->pool, f->c->bucket_alloc);
 	int fetch_more = 1;
@@ -251,14 +330,15 @@ void intercept_form_submit_filter_prefetch(request_rec * r, ifs_config * config,
 		if (ctx->cached_ret != APR_SUCCESS)
 			break;
 
-		apr_bucket * b = APR_BRIGADE_FIRST(bb);;
+		apr_bucket * b = APR_BRIGADE_FIRST(bb);
 		APR_BRIGADE_CONCAT(ctx->cached_brigade, bb);
 		for (; b != APR_BRIGADE_SENTINEL(ctx->cached_brigade); b = APR_BUCKET_NEXT(b)) {
 			if (! fetch_more)
 				break;
 			if (APR_BUCKET_IS_EOS(b)) {
 				if (fragment)
-					intercept_form_submit_process_buffer(r, config, &login_value, &password_value, fragment, fragment_length);
+					intercept_form_submit_process_buffer(f, config, &login_value, &password_value,
+						fragment, fragment_length, fragment_start_bucket, fragment_start_bucket_offset);
 				ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "hit EOS");
 				fetch_more = 0;
 				break;
@@ -280,14 +360,16 @@ void intercept_form_submit_filter_prefetch(request_rec * r, ifs_config * config,
 					int new_length = fragment_length + (e - p);
 					fragment = realloc(fragment, new_length);
 					memcpy(fragment + fragment_length, p, e - p);
-					if (intercept_form_submit_process_buffer(r, config, &login_value, &password_value, fragment, new_length)) {
+					if (intercept_form_submit_process_buffer(f, config, &login_value, &password_value,
+						fragment, new_length, fragment_start_bucket, fragment_start_bucket_offset)) {
 						fetch_more = 0;
 						break;
 					}
 					free(fragment);
 					fragment = NULL;
 				} else {
-					if (intercept_form_submit_process_buffer(r, config, &login_value, &password_value, p, e - p)) {
+					if (intercept_form_submit_process_buffer(f, config, &login_value, &password_value,
+						p, e - p, b, (p - buffer))) {
 						fetch_more = 0;
 						break;
 					}
@@ -305,12 +387,15 @@ void intercept_form_submit_filter_prefetch(request_rec * r, ifs_config * config,
 					fragment_length = new_length;
 				} else if (APR_BUCKET_NEXT(b) && APR_BUCKET_IS_EOS(APR_BUCKET_NEXT(b))) {
 					/* shortcut if this is the last bucket, slurp the rest */
-					intercept_form_submit_process_buffer(r, config, &login_value, &password_value, p, nbytes);
+					intercept_form_submit_process_buffer(f, config, &login_value, &password_value,
+						p, nbytes, b, (p - buffer));
 					fetch_more = 0;
 				} else {
 					fragment = malloc(nbytes);
 					memcpy(fragment, p, nbytes);
 					fragment_length = nbytes;
+					fragment_start_bucket = b;
+					fragment_start_bucket_offset = p - buffer;
 				}
 			}
 		}
@@ -346,7 +431,9 @@ void intercept_form_submit_init(request_rec * r) {
 }
 
 void * create_dir_conf(apr_pool_t * pool, char * dir) {
-	return apr_pcalloc(pool, sizeof(ifs_config));
+	ifs_config * cfg = apr_pcalloc(pool, sizeof(ifs_config));
+	cfg->password_redact = -1;
+	return cfg;
 }
 
 void * merge_dir_conf(apr_pool_t * pool, void * base_void, void * add_void) {
@@ -355,6 +442,7 @@ void * merge_dir_conf(apr_pool_t * pool, void * base_void, void * add_void) {
 	ifs_config * cfg = (ifs_config *) create_dir_conf(pool, NULL);
 	cfg->login_name = add->login_name ? add->login_name : base->login_name;
 	cfg->password_name = add->password_name ? add->password_name : base->password_name;
+	cfg->password_redact = add->password_redact >= 0 ? add->password_redact : base->password_redact;
 	cfg->pam_service = add->pam_service ? add->pam_service : base->pam_service;
 	if (add->login_blacklist) {
 		if (base->login_blacklist) {

@@ -42,13 +42,24 @@ specify three values:
       Name of the password field in the login form, and thus the
       password parameter in the POST request.
 
-All three parameters need to be specified or the interception will not
-be enabled.
+All three parameters above need to be specified or the interception
+will not be enabled.
 
-Optionally, list of logins to ignore (never attempt to authenticate)
-can be specified:
+Optional parameters:
 
-    InterceptFormLoginSkip one_login or_more_logins
+    InterceptFormLoginSkip one_login [or_more_logins]
+
+      List of logins to ignore (never attempt to authenticate).
+
+      By default authentication will be attempted for all logins.
+
+    InterceptFormPasswordRedact on|off
+
+      When set to on and authentication is attempted (no matter
+      if it passes or fails), the value of the password will
+      be modified in the POST data to string [REDACTED].
+
+      Default is off.
 
 Example:
 
@@ -57,6 +68,7 @@ Example:
       InterceptFormLogin login[login]
       InterceptFormPassword login[password]
       InterceptFormLoginSkip admin
+      InterceptFormPasswordRedact on
     </Location>
 
 The PAM service needs to be configured. For the above shown
