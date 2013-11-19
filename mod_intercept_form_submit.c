@@ -244,19 +244,16 @@ void intercept_form_submit_filter_prefetch(request_rec * r, ifs_config * config,
 	char * fragment = NULL;
 	int fragment_length = 0;
 
-	apr_bucket_brigade * bb = NULL;
+	apr_bucket_brigade * bb = apr_brigade_create(f->c->pool, f->c->bucket_alloc);
 	int fetch_more = 1;
 	while (fetch_more) {
-		if (bb)
-			APR_BRIGADE_CONCAT(ctx->cached_brigade, bb);
-		else
-			bb = apr_brigade_create(f->c->pool, f->c->bucket_alloc);
 		ctx->cached_ret = ap_get_brigade(f->next, bb, AP_MODE_READBYTES, APR_BLOCK_READ, HUGE_STRING_LEN);
 		if (ctx->cached_ret != APR_SUCCESS)
 			break;
 
-		apr_bucket * b;
-		for (b = APR_BRIGADE_FIRST(bb); b != APR_BRIGADE_SENTINEL(bb); b = APR_BUCKET_NEXT(b)) {
+		apr_bucket * b = APR_BRIGADE_FIRST(bb);;
+		APR_BRIGADE_CONCAT(ctx->cached_brigade, bb);
+		for (; b != APR_BRIGADE_SENTINEL(ctx->cached_brigade); b = APR_BUCKET_NEXT(b)) {
 			if (! fetch_more)
 				break;
 			if (APR_BUCKET_IS_EOS(b)) {
@@ -320,11 +317,6 @@ void intercept_form_submit_filter_prefetch(request_rec * r, ifs_config * config,
 	}
 	if (fragment)
 		free(fragment);
-
-	if (bb) {
-		APR_BRIGADE_CONCAT(ctx->cached_brigade, bb);
-		apr_brigade_cleanup(bb);
-	}
 }
 
 #define _INTERCEPT_CONTENT_TYPE "application/x-www-form-urlencoded"
