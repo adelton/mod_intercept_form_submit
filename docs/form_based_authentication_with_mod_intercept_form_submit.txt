@@ -34,11 +34,23 @@
 				12.1. Module mod_intercept_form_submit gets
 				      invoked
 				12.2. Module parses the post data, finds
-				      the login & password, and runs
-				      pam_authenticate
-				12.3. If pam_authenticate passes, it sets the
-				      REMOTE_USER environment variable
-				12.4. (orig 12) Apache runs or hands the
+				      the login & password
+				12.3. If login not in InterceptFormLoginSkip,
+				      runs pam_authenticate
+				12.4. If login in InterceptFormLoginSkip and
+				      InterceptFormClearRemoteUserForSkipped
+				      on, clears possible existing
+				      REMOTE_USER / r->user
+				12.5. If InterceptFormPasswordRedact on,
+				      replaces the password in the POST
+				      data with [REDACTED]
+				12.6. If pam_authenticate passes, module sets
+				      the REMOTE_USER environment variable and
+				      r->user
+				12.7. If pam_authenticate passes and
+				      mod_lookup_identity loaded, it gets
+				      called
+				12.8. (orig 12) Apache runs or hands the
 				      request over to application
 					13.1. Application gets run
 					13.2. When it sees REMOTE_USER, it
