@@ -109,6 +109,14 @@ int pam_authenticate_with_login_password(request_rec * r, const char * pam_servi
 		pam_end(pamh, ret);
 		return 0;
 	}
+	if ((ret = pam_acct_mgmt(pamh, PAM_SILENT | PAM_DISALLOW_NULL_AUTHTOK)) != PAM_SUCCESS) {
+		const char * strerr = pam_strerror(pamh, ret);
+		ap_log_error(APLOG_MARK, APLOG_WARNING, 0, r->server,
+			"mod_intercept_form_submit: PAM account validation failed for user %s: %s", login, strerr);
+		apr_table_setn(r->subprocess_env, _EXTERNAL_AUTH_ERROR_ENV_NAME, apr_pstrdup(r->pool, strerr));
+		pam_end(pamh, ret);
+		return 0;
+	}
 	apr_table_setn(r->subprocess_env, _REMOTE_USER_ENV_NAME, login);
 	r->user = login;
 	ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, r->server, "mod_intercept_form_submit: PAM authentication passed for user %s", login);

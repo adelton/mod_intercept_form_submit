@@ -85,6 +85,7 @@ http_application_sss example, file /etc/pam.d/http_application_sss
 could be created with content
 
     auth    required   pam_sss.so
+    account required   pam_sss.so
 
 to authenticate against sssd.
 
