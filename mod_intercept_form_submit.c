@@ -92,27 +92,20 @@ int pam_authenticate_conv(int num_msg, const struct pam_message ** msg, struct p
 int pam_authenticate_with_login_password(request_rec * r, const char * pam_service, char * login, const char * password) {
 	pam_handle_t * pamh = NULL;
 	struct pam_conv pam_conversation = { &pam_authenticate_conv, (void *) password };
+	const char * stage = "PAM transaction failed for service";
+	const char * param = pam_service;
 	int ret;
-	if ((ret = pam_start(pam_service, login, &pam_conversation, &pamh)) != PAM_SUCCESS) {
-		const char * strerr = pam_strerror(pamh, ret);
-		ap_log_error(APLOG_MARK, APLOG_WARNING, 0, r->server,
-			"mod_intercept_form_submit: PAM transaction failed for service %s: %s", pam_service, strerr);
-		apr_table_setn(r->subprocess_env, _EXTERNAL_AUTH_ERROR_ENV_NAME, apr_pstrdup(r->pool, strerr));
-		pam_end(pamh, ret);
-		return 0;
+	if ((ret = pam_start(pam_service, login, &pam_conversation, &pamh)) == PAM_SUCCESS) {
+		param = login;
+		stage = "PAM authentication failed for user";
+		if ((ret = pam_authenticate(pamh, PAM_SILENT | PAM_DISALLOW_NULL_AUTHTOK)) == PAM_SUCCESS) {
+			stage = "PAM account validation failed for user";
+			ret = pam_acct_mgmt(pamh, PAM_SILENT | PAM_DISALLOW_NULL_AUTHTOK);
+		}
 	}
-	if ((ret = pam_authenticate(pamh, PAM_SILENT | PAM_DISALLOW_NULL_AUTHTOK)) != PAM_SUCCESS) {
+	if (ret != PAM_SUCCESS) {
 		const char * strerr = pam_strerror(pamh, ret);
-		ap_log_error(APLOG_MARK, APLOG_WARNING, 0, r->server,
-			"mod_intercept_form_submit: PAM authentication failed for user %s: %s", login, strerr);
-		apr_table_setn(r->subprocess_env, _EXTERNAL_AUTH_ERROR_ENV_NAME, apr_pstrdup(r->pool, strerr));
-		pam_end(pamh, ret);
-		return 0;
-	}
-	if ((ret = pam_acct_mgmt(pamh, PAM_SILENT | PAM_DISALLOW_NULL_AUTHTOK)) != PAM_SUCCESS) {
-		const char * strerr = pam_strerror(pamh, ret);
-		ap_log_error(APLOG_MARK, APLOG_WARNING, 0, r->server,
-			"mod_intercept_form_submit: PAM account validation failed for user %s: %s", login, strerr);
+		ap_log_error(APLOG_MARK, APLOG_WARNING, 0, r->server, "mod_intercept_form_submit: %s %s: %s", stage, param, strerr);
 		apr_table_setn(r->subprocess_env, _EXTERNAL_AUTH_ERROR_ENV_NAME, apr_pstrdup(r->pool, strerr));
 		pam_end(pamh, ret);
 		return 0;
