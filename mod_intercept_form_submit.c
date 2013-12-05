@@ -428,13 +428,21 @@ void intercept_form_submit_init(request_rec * r) {
 		return;
 	}
 	const char * content_type = apr_table_get(r->headers_in, "Content-Type");
-	if (content_type && !apr_strnatcasecmp(content_type, _INTERCEPT_CONTENT_TYPE)) {
-		ap_filter_t * the_filter = ap_add_input_filter("intercept_form_submit_filter", NULL, r, r->connection);
-		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "inserted filter intercept_form_submit_filter, starting intercept_form_submit_filter_prefetch");
-		intercept_form_submit_filter_prefetch(r, config, the_filter);
-	} else {
-		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "skipping, no " _INTERCEPT_CONTENT_TYPE);
+	if (content_type) {
+		char * content_type_pure = apr_pstrdup(r->pool, content_type);
+		char * sep;
+		if ((sep = strchr(content_type_pure, ';'))) {
+			*sep = '\0';
+		}
+		apr_collapse_spaces(content_type_pure, content_type_pure);
+		if (!apr_strnatcasecmp(content_type_pure, _INTERCEPT_CONTENT_TYPE)) {
+			ap_filter_t * the_filter = ap_add_input_filter("intercept_form_submit_filter", NULL, r, r->connection);
+			ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "inserted filter intercept_form_submit_filter, starting intercept_form_submit_filter_prefetch");
+			intercept_form_submit_filter_prefetch(r, config, the_filter);
+			return;
+		}
 	}
+	ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "skipping, no " _INTERCEPT_CONTENT_TYPE);
 }
 
 void * create_dir_conf(apr_pool_t * pool, char * dir) {
