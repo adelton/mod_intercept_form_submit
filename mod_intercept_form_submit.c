@@ -115,10 +115,10 @@ int pam_authenticate_with_login_password(request_rec * r, const char * pam_servi
 	ap_log_error(APLOG_MARK, APLOG_NOTICE, 0, r->server, "mod_intercept_form_submit: PAM authentication passed for user %s", login);
 	pam_end(pamh, ret);
 	if (lookup_identity_hook_fn) {
-		ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "calling lookup_identity_hook");
+		ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "mod_intercept_form_submit: calling lookup_identity_hook");
 		lookup_identity_hook_fn(r);
 	} else {
-		ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "not calling lookup_identity_hook, is NULL");
+		ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "mod_intercept_form_submit: not calling lookup_identity_hook, is NULL");
 	}
 	return 1;
 }
