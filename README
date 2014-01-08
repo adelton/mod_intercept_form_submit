@@ -99,7 +99,7 @@ Building from sources
 
 When building from sources, command
 
-    apxs -i -a -c mod_intercept_form_submit.c -lpam -Wall -pedantic
+    apxs -i -a -c mod_intercept_form_submit.c -Wall -pedantic
 
 should build and install the module.
 
