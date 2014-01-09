@@ -246,6 +246,10 @@ static int intercept_form_submit_process_buffer(ap_filter_t * f, ifs_config * co
 		}
 	}
 	if (run_auth) {
+		if (! pam_authenticate_with_login_password_fn) {
+			ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "mod_intercept_form_submit: pam_authenticate_with_login_password not found; perhaps mod_authnz_pam is not loaded");
+			return 0;
+		}
 		authn_status auth_result = pam_authenticate_with_login_password_fn(r, config->pam_service, *login_value, *password_value, 3);
 		if (auth_result == AUTH_GRANTED) {
 			if (lookup_identity_hook_fn) {
