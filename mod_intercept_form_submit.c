@@ -1,6 +1,6 @@
 
 /*
- * Copyright 2013 Jan Pazdziora
+ * Copyright 2013--2014 Jan Pazdziora
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ APR_DECLARE_OPTIONAL_FN(authn_status, pam_authenticate_with_login_password,
 	const char * login, const char * password, int steps));
 static APR_OPTIONAL_FN_TYPE(pam_authenticate_with_login_password) * pam_authenticate_with_login_password_fn = NULL;
 
-const char * add_login_to_blacklist(cmd_parms * cmd, void * conf_void, const char * arg) {
+static const char * add_login_to_blacklist(cmd_parms * cmd, void * conf_void, const char * arg) {
 	ifs_config * cfg = (ifs_config *) conf_void;
 	if (cfg) {
 		if (! cfg->login_blacklist) {
@@ -74,14 +74,14 @@ static const command_rec directives[] = {
 
 #define _REMOTE_USER_ENV_NAME "REMOTE_USER"
 
-void register_lookup_identity_hook_fn(void) {
+static void register_lookup_identity_hook_fn(void) {
 	lookup_identity_hook_fn = APR_RETRIEVE_OPTIONAL_FN(lookup_identity_hook);
 }
-void register_pam_authenticate_with_login_password_fn(void) {
+static void register_pam_authenticate_with_login_password_fn(void) {
 	pam_authenticate_with_login_password_fn = APR_RETRIEVE_OPTIONAL_FN(pam_authenticate_with_login_password);
 }
 
-int hex2char(int c) {
+static int hex2char(int c) {
 	if (c >= '0' && c <= '9')
 		return c - '0';
 	if (c >= 'a' && c <= 'z')
@@ -91,7 +91,7 @@ int hex2char(int c) {
 	return -1;
 }
 
-char * intercept_form_submit_process_keyval(apr_pool_t * pool, const char * name,
+static char * intercept_form_submit_process_keyval(apr_pool_t * pool, const char * name,
 	const char * key, int key_len, const char * val, int val_len) {
 	if (val_len == 0)
 		return NULL;
@@ -138,7 +138,7 @@ char * intercept_form_submit_process_keyval(apr_pool_t * pool, const char * name
 }
 
 #define _REDACTED_STRING "[REDACTED]"
-void intercept_form_redact_password(ap_filter_t * f, ifs_config * config) {
+static void intercept_form_redact_password(ap_filter_t * f, ifs_config * config) {
 	request_rec * r = f->r;
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "will redact password (value of %s) in the POST data", config->password_name);
 	ifs_filter_ctx_t * ctx = f->ctx;
@@ -203,7 +203,7 @@ void intercept_form_redact_password(ap_filter_t * f, ifs_config * config) {
 	}
 }
 
-int intercept_form_submit_process_buffer(ap_filter_t * f, ifs_config * config, char ** login_value, char ** password_value,
+static int intercept_form_submit_process_buffer(ap_filter_t * f, ifs_config * config, char ** login_value, char ** password_value,
 	const char * buffer, int buffer_length, apr_bucket * fragment_start_bucket, int fragment_start_bucket_offset) {
 	char * sep = memchr(buffer, '=', buffer_length);
 	if (! sep) {
@@ -275,7 +275,7 @@ static apr_status_t intercept_form_submit_filter(ap_filter_t * f, apr_bucket_bri
 	return ap_get_brigade(f->next, bb, mode, block, readbytes);
 }
 
-void intercept_form_submit_filter_prefetch(request_rec * r, ifs_config * config, ap_filter_t * f) {
+static void intercept_form_submit_filter_prefetch(request_rec * r, ifs_config * config, ap_filter_t * f) {
 	if (r->status != 200)
 		return;
 
@@ -375,7 +375,7 @@ void intercept_form_submit_filter_prefetch(request_rec * r, ifs_config * config,
 }
 
 #define _INTERCEPT_CONTENT_TYPE "application/x-www-form-urlencoded"
-void intercept_form_submit_init(request_rec * r) {
+static void intercept_form_submit_init(request_rec * r) {
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "intercept_form_submit_init invoked");
 	if (r->method_number != M_POST) {
 		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "skipping, no POST request");
@@ -408,14 +408,14 @@ void intercept_form_submit_init(request_rec * r) {
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "skipping, no " _INTERCEPT_CONTENT_TYPE);
 }
 
-void * create_dir_conf(apr_pool_t * pool, char * dir) {
+static void * create_dir_conf(apr_pool_t * pool, char * dir) {
 	ifs_config * cfg = apr_pcalloc(pool, sizeof(ifs_config));
 	cfg->password_redact = -1;
 	cfg->clear_blacklisted = -1;
 	return cfg;
 }
 
-void * merge_dir_conf(apr_pool_t * pool, void * base_void, void * add_void) {
+static void * merge_dir_conf(apr_pool_t * pool, void * base_void, void * add_void) {
 	ifs_config * base = (ifs_config *) base_void;
 	ifs_config * add = (ifs_config *) add_void;
 	ifs_config * cfg = (ifs_config *) create_dir_conf(pool, NULL);
