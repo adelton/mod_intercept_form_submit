@@ -379,20 +379,20 @@ static void intercept_form_submit_filter_prefetch(request_rec * r, ifs_config * 
 }
 
 #define _INTERCEPT_CONTENT_TYPE "application/x-www-form-urlencoded"
-static void intercept_form_submit_init(request_rec * r) {
+static apr_status_t intercept_form_submit_init(request_rec * r) {
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "intercept_form_submit_init invoked");
 	if (r->method_number != M_POST) {
 		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "skipping, no POST request");
-		return;
+		return DECLINED;
 	}
 	ifs_config * config = ap_get_module_config(r->per_dir_config, &intercept_form_submit_module);
 	if (!(config && config->login_name && config->password_name && config->pam_service)) {
 		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "skipping, not configured");
-		return;
+		return DECLINED;
 	}
 	if (apr_table_get(r->subprocess_env, _REMOTE_USER_ENV_NAME)) {
 		ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "skipping, " _REMOTE_USER_ENV_NAME " already set");
-		return;
+		return DECLINED;
 	}
 	const char * content_type = apr_table_get(r->headers_in, "Content-Type");
 	if (content_type) {
@@ -406,10 +406,11 @@ static void intercept_form_submit_init(request_rec * r) {
 			ap_filter_t * the_filter = ap_add_input_filter("intercept_form_submit_filter", NULL, r, r->connection);
 			ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "inserted filter intercept_form_submit_filter, starting intercept_form_submit_filter_prefetch");
 			intercept_form_submit_filter_prefetch(r, config, the_filter);
-			return;
+			return DECLINED;
 		}
 	}
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server, "skipping, no " _INTERCEPT_CONTENT_TYPE);
+	return DECLINED;
 }
 
 static void * create_dir_conf(apr_pool_t * pool, char * dir) {
@@ -441,7 +442,7 @@ static void * merge_dir_conf(apr_pool_t * pool, void * base_void, void * add_voi
 }
 
 static void register_hooks(apr_pool_t * pool) {
-	ap_hook_insert_filter(intercept_form_submit_init, NULL, NULL, APR_HOOK_MIDDLE);
+	ap_hook_fixups(intercept_form_submit_init, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_register_input_filter("intercept_form_submit_filter", intercept_form_submit_filter, NULL, AP_FTYPE_RESOURCE);
 	ap_hook_optional_fn_retrieve(register_lookup_identity_hook_fn, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_optional_fn_retrieve(register_pam_authenticate_with_login_password_fn, NULL, NULL, APR_HOOK_MIDDLE);

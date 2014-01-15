@@ -6,7 +6,7 @@
 
 Summary: Apache module to intercept login form submission and run PAM authentication.
 Name: mod_intercept_form_submit
-Version: 0.9.2
+Version: 0.9.3
 Release: 1%{?dist}
 License: ASL 2.0
 Group: System Environment/Daemons
@@ -56,6 +56,10 @@ install -Dp -m 0644 intercept_form_submit.conf $RPM_BUILD_ROOT%{_httpd_confdir}/
 %{_httpd_moddir}/*.so
 
 %changelog
+* Wed Jan 15 2014 Jan Pazdziora - 0.9.3-1
+- Move the processing to the middle of the fixup phase to allow
+  mod_headers to process the result.
+
 * Thu Jan 09 2014 Jan Pazdziora - 0.9.2-1
 - If pam_authenticate_with_login_password is not available (mod_authnz_pam
   not loaded), skip calling it.
