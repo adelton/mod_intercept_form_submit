@@ -24,9 +24,15 @@ validation (see the docs/ directory for outline of the interaction).
 Module configuration
 --------------------
 
-The module needs to be configured for Location that the application
-uses to process the login form POST requests. The configuration has to
-specify three values:
+Module mod_authnz_pam needs to be installed and loaded with
+
+    LoadModule authnz_pam_module modules/mod_authnz_pam.so
+
+because mod_intercept_form_submit uses it to do the actual PAM operations.
+
+The mod_intercept_form_submit module needs to be configured for Location
+that the application uses to process the login form POST requests. The
+configuration has to specify three values:
 
     InterceptFormPAMService name_of_the_PAM_service
 
@@ -71,6 +77,8 @@ Optional parameters:
 
 Example:
 
+    LoadModule intercept_form_submit_module modules/mod_intercept_form_submit.so
+    LoadModule authnz_pam_module modules/mod_authnz_pam.so
     <Location /users/login>
       InterceptFormPAMService http_application_sss
       InterceptFormLogin login[login]
@@ -106,7 +114,7 @@ should build and install the module.
 License
 -------
 
-Copyright 2013 Jan Pazdziora
+Copyright 2013--2014 Jan Pazdziora
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
