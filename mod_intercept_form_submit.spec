@@ -7,7 +7,7 @@
 
 Summary: Apache module to intercept login form submission and run PAM authentication
 Name: mod_intercept_form_submit
-Version: 0.9.4
+Version: 0.9.5
 Release: 1%{?dist}
 License: ASL 2.0
 Group: System Environment/Daemons
@@ -57,37 +57,6 @@ install -Dp -m 0644 intercept_form_submit.conf $RPM_BUILD_ROOT%{_httpd_confdir}/
 %{_httpd_moddir}/*.so
 
 %changelog
-* Thu Jan 16 2014 Jan Pazdziora - 0.9.4-1
-- Amend documentation to show mod_authnz_pam loading.
+* Thu Jan 30 2014 Jan Pazdziora <jpazdziora@redhat.com> - 0.9.5-1
+- 1058809 - .spec changes for Fedora package review.
 
-* Wed Jan 15 2014 Jan Pazdziora - 0.9.3-1
-- Move the processing to the middle of the fixup phase to allow
-  mod_headers to process the result.
-
-* Thu Jan 09 2014 Jan Pazdziora - 0.9.2-1
-- If pam_authenticate_with_login_password is not available (mod_authnz_pam
-  not loaded), skip calling it.
-- Declare all functions static for proper isolation.
-
-* Wed Jan 08 2014 Jan Pazdziora - 0.9.1-1
-- Use mod_authnz_pam for the actual PAM authentication.
-
-* Thu Dec 05 2013 Jan Pazdziora - 0.9-1
-- Perform PAM account validation, not just authentication.
-- Support Content-Type with charset parameter.
-
-* Tue Nov 19 2013 Jan Pazdziora - 0.8-1
-- Populate r->user as well, not just REMOTE_USER.
-- Set EXTERNAL_AUTH_ERROR variable upon PAM authentication error.
-- Add support for InterceptFormClearRemoteUserForSkipped.
-- Add support for InterceptFormPasswordRedact.
-
-* Thu Nov 07 2013 Jan Pazdziora - 0.7-1
-- Parse the input early enough to support CGI scripts.
-- Skip the authentication if REMOTE_USER is already set.
-
-* Mon Nov 04 2013 Jan Pazdziora - 0.6-1
-- Adding support for blacklists via InterceptFormLoginSkip.
-
-* Thu Oct 31 2013 Jan Pazdziora - 0.5-1
-- Initial release.
