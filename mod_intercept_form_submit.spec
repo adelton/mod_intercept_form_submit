@@ -4,7 +4,7 @@
 %{!?_httpd_modconfdir: %{expand: %%global _httpd_modconfdir %%{_sysconfdir}/httpd/conf.d}}
 %{!?_httpd_moddir:    %{expand: %%global _httpd_moddir    %%{_libdir}/httpd/modules}}
 
-Summary: Apache module to intercept login form submission and run PAM authentication.
+Summary: Apache module to intercept login form submission and run PAM authentication
 Name: mod_intercept_form_submit
 Version: 0.9.4
 Release: 1%{?dist}
