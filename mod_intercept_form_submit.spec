@@ -19,7 +19,8 @@ Requires(pre): httpd
 Requires: httpd-mmn = %{_httpd_mmn}
 Requires: mod_authnz_pam >= 0.7
 
-# Suppres auto-provides for module DSO
+# Suppres auto-provides for module DSO per
+# https://fedoraproject.org/wiki/Packaging:AutoProvidesAndRequiresFiltering#Summary
 %{?filter_provides_in: %filter_provides_in %{_libdir}/httpd/modules/.*\.so$}
 %{?filter_setup}
 
