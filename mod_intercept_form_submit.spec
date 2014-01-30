@@ -33,7 +33,7 @@ the REMOTE_USER environment variable if the authentication passes.
 %setup -q -n %{name}-%{version}
 
 %build
-%{_httpd_apxs} -c mod_intercept_form_submit.c -Wall -pedantic
+%{_httpd_apxs} -c -Wc,"%{optflags} -Wall -pedantic" mod_intercept_form_submit.c
 
 %install
 rm -rf $RPM_BUILD_ROOT
