@@ -1,3 +1,4 @@
+%{!?_httpd_mmn: %{expand: %%global _httpd_mmn %%(cat %{_includedir}/httpd/.mmn || echo 0-0)}}
 %{!?_httpd_apxs:       %{expand: %%global _httpd_apxs       %%{_sbindir}/apxs}}
 %{!?_httpd_confdir:    %{expand: %%global _httpd_confdir    %%{_sysconfdir}/httpd/conf.d}}
 # /etc/httpd/conf.d with httpd < 2.4 and defined as /etc/httpd/conf.modules.d with httpd >= 2.4
@@ -15,7 +16,7 @@ Source0: http://www.adelton.com/apache/mod_intercept_form_submit/%{name}-%{versi
 BuildRequires: httpd-devel
 BuildRequires: pkgconfig
 Requires(pre): httpd
-Requires: httpd
+Requires: httpd-mmn = %{_httpd_mmn}
 Requires: mod_authnz_pam >= 0.7
 
 # Suppres auto-provides for module DSO
