@@ -75,6 +75,20 @@ Optional parameters:
 
       Default is off.
 
+    InterceptFormLoginRealms REALM1 [other REALM2]
+
+      List of realm/domain names to append to the login and try
+      in cycle when the login does not contain the '@' sign. This
+      can be used for force particular realms without users being
+      forced to enter them. Empty string can be used in the list
+      to explicitly try authentication without any realm.
+
+      This can be used with mod_auth_kerb's (default)
+      KrbMethodK5Passwd Off to present login names including realms
+      to web applications.
+
+      By default, not modifications to login happens.
+
 Example:
 
     LoadModule intercept_form_submit_module modules/mod_intercept_form_submit.so
@@ -86,6 +100,7 @@ Example:
       InterceptFormLoginSkip admin
       InterceptFormClearRemoteUserForSkipped on
       InterceptFormPasswordRedact on
+      InterceptFormLoginRealms EXAMPLE.COM LAB.EXAMPLE.COM ''
     </Location>
 
 The PAM service needs to be configured. For the above shown

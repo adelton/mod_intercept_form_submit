@@ -31,6 +31,7 @@ typedef struct ifs_config {
 	char * pam_service;
 	apr_hash_t * login_blacklist;
 	int clear_blacklisted;
+	apr_array_header_t * realms;
 } ifs_config;
 
 typedef struct {
@@ -62,6 +63,17 @@ static const char * add_login_to_blacklist(cmd_parms * cmd, void * conf_void, co
 	return NULL;
 }
 
+static const char * add_realm(cmd_parms * cmd, void * conf_void, const char * arg) {
+	ifs_config * cfg = (ifs_config *) conf_void;
+	if (cfg) {
+		if (! cfg->realms) {
+			cfg->realms = apr_array_make(cmd->pool, 1, sizeof(char *));
+		}
+		*(const char **) apr_array_push(cfg->realms) = arg;
+	}
+	return NULL;
+}
+
 static const command_rec directives[] = {
 	AP_INIT_TAKE1("InterceptFormLogin", ap_set_string_slot, (void *)APR_OFFSETOF(ifs_config, login_name), ACCESS_CONF, "Name of the login parameter in the POST request"),
 	AP_INIT_TAKE1("InterceptFormPassword", ap_set_string_slot, (void *)APR_OFFSETOF(ifs_config, password_name), ACCESS_CONF, "Name of the password parameter in the POST request"),
@@ -69,6 +81,7 @@ static const command_rec directives[] = {
 	AP_INIT_TAKE1("InterceptFormPAMService", ap_set_string_slot, (void *)APR_OFFSETOF(ifs_config, pam_service), ACCESS_CONF, "PAM service to authenticate against"),
 	AP_INIT_ITERATE("InterceptFormLoginSkip", add_login_to_blacklist, NULL, ACCESS_CONF, "Login name(s) for which no PAM authentication will be done"),
 	AP_INIT_FLAG("InterceptFormClearRemoteUserForSkipped", ap_set_flag_slot, (void *)APR_OFFSETOF(ifs_config, clear_blacklisted), ACCESS_CONF, "When authentication is skipped for users listed with InterceptFormLoginSkip, clear r->user and REMOTE_USER"),
+	AP_INIT_ITERATE("InterceptFormLoginRealms", add_realm, NULL, ACCESS_CONF, "Realm(s) that will be appended to login name which does not have one"),
 	{ NULL }
 };
 
@@ -135,6 +148,30 @@ static char * intercept_form_submit_process_keyval(apr_pool_t * pool, const char
 	}
 	*p = '\0';
 	return ret;
+}
+
+static authn_status pam_authenticate_in_realms(request_rec * r, const char * pam_service,
+	const char * login, const char * password, apr_array_header_t * realms, int steps) {
+
+	if (strchr(login, '@') || (! realms) || (! realms->nelts)) {
+		return pam_authenticate_with_login_password_fn(r, pam_service, login, password, steps);
+	}
+	// pam_authenticate_with_login_password_fn(r, config->pam_service, *login_value, *password_value, 3);
+
+	authn_status first_status = AUTH_GENERAL_ERROR;
+	int i;
+	for (i = 0; i < realms->nelts; i++) {
+		const char * realm = ((const char**)realms->elts)[i];
+		const char * full_login = login;
+		if (realm && strlen(realm))
+			full_login = apr_pstrcat(r->pool, login, "@", realm, NULL);
+		authn_status status = pam_authenticate_with_login_password_fn(r, pam_service, full_login, password, steps);
+		if (status == AUTH_GRANTED)
+			return status;
+		if (i == 0)
+			first_status = status;
+	}
+	return first_status;
 }
 
 #define _REDACTED_STRING "[REDACTED]"
@@ -250,7 +287,7 @@ static int intercept_form_submit_process_buffer(ap_filter_t * f, ifs_config * co
 			ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "mod_intercept_form_submit: pam_authenticate_with_login_password not found; perhaps mod_authnz_pam is not loaded");
 			return 0;
 		}
-		authn_status auth_result = pam_authenticate_with_login_password_fn(r, config->pam_service, *login_value, *password_value, 3);
+		authn_status auth_result = pam_authenticate_in_realms(r, config->pam_service, *login_value, *password_value, config->realms, 3);
 		if (auth_result == AUTH_GRANTED) {
 			if (lookup_identity_hook_fn) {
 				ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "mod_intercept_form_submit: calling lookup_identity_hook");
@@ -438,6 +475,7 @@ static void * merge_dir_conf(apr_pool_t * pool, void * base_void, void * add_voi
 	} else if (base->login_blacklist) {
 		cfg->login_blacklist = base->login_blacklist;
 	}
+	cfg->realms = add->realms ? add->realms : base->realms;
 	return cfg;
 }
 
