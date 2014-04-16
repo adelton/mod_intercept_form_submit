@@ -87,7 +87,7 @@ Optional parameters:
       KrbMethodK5Passwd Off to present login names including realms
       to web applications.
 
-      By default, not modifications to login happens.
+      By default, no modifications to login happens.
 
 Example:
 
