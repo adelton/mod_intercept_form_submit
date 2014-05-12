@@ -7,9 +7,7 @@ retrieves the login and password information from the POST HTTP
 request, runs PAM authentication with those credentials, and sets the
 REMOTE_USER environment variable if the authentication passes. The
 internal r->user field is also set so other modules can use it (even
-if the module is invoked very late in the request processing). The
-lookup_identity_hook from mod_lookup_identity is explicitly called
-after the r->user is set.
+if the module is invoked very late in the request processing).
 
 If the REMOTE_USER is already set (presumably by some previous module),
 no authentication takes place.

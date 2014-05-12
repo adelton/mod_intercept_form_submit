@@ -44,9 +44,6 @@ typedef struct {
 
 module AP_MODULE_DECLARE_DATA intercept_form_submit_module;
 
-APR_DECLARE_OPTIONAL_FN(int, lookup_identity_hook, (request_rec * r));
-static APR_OPTIONAL_FN_TYPE(lookup_identity_hook) * lookup_identity_hook_fn = NULL;
-
 APR_DECLARE_OPTIONAL_FN(authn_status, pam_authenticate_with_login_password,
 	(request_rec * r, const char * pam_service,
 	const char * login, const char * password, int steps));
@@ -87,9 +84,6 @@ static const command_rec directives[] = {
 
 #define _REMOTE_USER_ENV_NAME "REMOTE_USER"
 
-static void register_lookup_identity_hook_fn(void) {
-	lookup_identity_hook_fn = APR_RETRIEVE_OPTIONAL_FN(lookup_identity_hook);
-}
 static void register_pam_authenticate_with_login_password_fn(void) {
 	pam_authenticate_with_login_password_fn = APR_RETRIEVE_OPTIONAL_FN(pam_authenticate_with_login_password);
 }
@@ -287,15 +281,7 @@ static int intercept_form_submit_process_buffer(ap_filter_t * f, ifs_config * co
 			ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, "mod_intercept_form_submit: pam_authenticate_with_login_password not found; perhaps mod_authnz_pam is not loaded");
 			return 0;
 		}
-		authn_status auth_result = pam_authenticate_in_realms(r, config->pam_service, *login_value, *password_value, config->realms, 3);
-		if (auth_result == AUTH_GRANTED) {
-			if (lookup_identity_hook_fn) {
-				ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "mod_intercept_form_submit: calling lookup_identity_hook");
-				lookup_identity_hook_fn(r);
-			} else {
-				ap_log_error(APLOG_MARK, APLOG_INFO, 0, r->server, "mod_intercept_form_submit: not calling lookup_identity_hook, is NULL");
-			}
-		}
+		pam_authenticate_in_realms(r, config->pam_service, *login_value, *password_value, config->realms, 3);
 		if (config->password_redact > 0) {
 			intercept_form_redact_password(f, config);
 		}
@@ -482,7 +468,6 @@ static void * merge_dir_conf(apr_pool_t * pool, void * base_void, void * add_voi
 static void register_hooks(apr_pool_t * pool) {
 	ap_hook_fixups(intercept_form_submit_init, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_register_input_filter("intercept_form_submit_filter", intercept_form_submit_filter, NULL, AP_FTYPE_RESOURCE);
-	ap_hook_optional_fn_retrieve(register_lookup_identity_hook_fn, NULL, NULL, APR_HOOK_MIDDLE);
 	ap_hook_optional_fn_retrieve(register_pam_authenticate_with_login_password_fn, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
