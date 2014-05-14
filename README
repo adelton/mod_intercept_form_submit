@@ -124,6 +124,28 @@ When building from sources, command
 
 should build and install the module.
 
+Dependency on mod_authnz_pam
+----------------------------
+
+Module mod_intercept_form_submit has soft (runtime) dependency on
+function pam_authenticate_with_login_password with prototype
+
+	authn_status pam_authenticate_with_login_password(
+		request_rec * r, const char * pam_service,
+		const char * login, const char * password,
+		int steps
+	);
+
+This function is typically provided by module mod_authnz_pam, and is
+called to achieve the actual authentication via the PAM stack. When
+mod_authnz_pam is not loaded and thus this function not available,
+error
+
+	mod_intercept_form_submit: pam_authenticate_with_login_password
+		not found; perhaps mod_authnz_pam is not loaded
+
+is logged and authentication does not take place.
+
 License
 -------
 
