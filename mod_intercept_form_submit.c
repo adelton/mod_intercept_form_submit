@@ -150,7 +150,6 @@ static authn_status pam_authenticate_in_realms(request_rec * r, const char * pam
 	if (strchr(login, '@') || (! realms) || (! realms->nelts)) {
 		return pam_authenticate_with_login_password_fn(r, pam_service, login, password, steps);
 	}
-	// pam_authenticate_with_login_password_fn(r, config->pam_service, *login_value, *password_value, 3);
 
 	authn_status first_status = AUTH_GENERAL_ERROR;
 	int i;
