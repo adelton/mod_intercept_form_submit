@@ -35,6 +35,14 @@ the REMOTE_USER environment variable if the authentication passes.
 
 %build
 %{_httpd_apxs} -c -Wc,"%{optflags} -Wall -pedantic -std=c99" mod_intercept_form_submit.c
+%if "%{_httpd_modconfdir}" != "%{_httpd_confdir}"
+echo > intercept_form_submit.confx
+echo "# Load the module in %{_httpd_modconfdir}/55-intercept_form_submit.conf" >> intercept_form_submit.confx
+cat intercept_form_submit.conf >> intercept_form_submit.confx
+%else
+cat intercept_form_submit.module > intercept_form_submit.confx
+cat intercept_form_submit.conf >> intercept_form_submit.confx
+%endif
 
 %install
 rm -rf $RPM_BUILD_ROOT
@@ -42,19 +50,16 @@ install -Dm 755 .libs/mod_intercept_form_submit.so $RPM_BUILD_ROOT%{_httpd_moddi
 
 %if "%{_httpd_modconfdir}" != "%{_httpd_confdir}"
 # httpd >= 2.4.x
-install -Dp -m 0644 intercept_form_submit.conf $RPM_BUILD_ROOT%{_httpd_modconfdir}/55-intercept_form_submit.conf
-%else
-# httpd <= 2.2.x
-install -Dp -m 0644 intercept_form_submit.conf $RPM_BUILD_ROOT%{_httpd_confdir}/intercept_form_submit.conf
+install -Dp -m 0644 intercept_form_submit.module $RPM_BUILD_ROOT%{_httpd_modconfdir}/55-intercept_form_submit.conf
 %endif
+install -Dp -m 0644 intercept_form_submit.confx $RPM_BUILD_ROOT%{_httpd_confdir}/intercept_form_submit.conf
 
 %files
 %doc README LICENSE docs/*
 %if "%{_httpd_modconfdir}" != "%{_httpd_confdir}"
 %config(noreplace) %{_httpd_modconfdir}/55-intercept_form_submit.conf
-%else
-%config(noreplace) %{_httpd_confdir}/intercept_form_submit.conf
 %endif
+%config(noreplace) %{_httpd_confdir}/intercept_form_submit.conf
 %{_httpd_moddir}/*.so
 
 %changelog
