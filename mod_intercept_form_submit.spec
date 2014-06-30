@@ -7,7 +7,7 @@
 
 Summary: Apache module to intercept login form submission and run PAM authentication
 Name: mod_intercept_form_submit
-Version: 0.9.7
+Version: 0.9.8
 Release: 1%{?dist}
 License: ASL 2.0
 Group: System Environment/Daemons
@@ -63,6 +63,11 @@ install -Dp -m 0644 intercept_form_submit.confx $RPM_BUILD_ROOT%{_httpd_confdir}
 %{_httpd_moddir}/*.so
 
 %changelog
+* Mon Jun 30 2014 Jan Pazdziora <jpazdziora@redhat.com> - 0.9.8-1
+- 1109923 - Fix module loading/configuration for Apache 2.4.
+- Document the runtime dependency on pam_authenticate_with_login_password.
+- Comment/code cleanup.
+
 * Tue May 13 2014 Jan Pazdziora <jpazdziora@redhat.com> - 0.9.7-1
 - No longer call lookup_identity_hook explicitly, hook order does
   the same.
