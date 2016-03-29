@@ -7,7 +7,7 @@
 
 Summary: Apache module to intercept login form submission and run PAM authentication
 Name: mod_intercept_form_submit
-Version: 1.0.0
+Version: 1.0.1
 Release: 1%{?dist}
 License: ASL 2.0
 Group: System Environment/Daemons
@@ -62,6 +62,9 @@ install -Dp -m 0644 intercept_form_submit.confx $RPM_BUILD_ROOT%{_httpd_confdir}
 %{_httpd_moddir}/*.so
 
 %changelog
+* Fri May 06 2016 Jan Pazdziora <jpazdziora@redhat.com> - 1.0.1-1
+- Add support for InterceptGETOnSuccess.
+
 * Mon Mar 21 2016 Jan Pazdziora <jpazdziora@redhat.com> - 1.0.0-1
 - 1319094 - the Requires(pre) httpd does not seem to be needed.
 

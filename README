@@ -87,6 +87,14 @@ Optional parameters:
 
       By default, no modifications to login happens.
 
+    InterceptGETOnSuccess on|off
+
+      When the authentication using the POST data passes, the
+      method of the request is internally changed to GET. This
+      stops applications and frameworks that insist on running
+      their own authentication on POST irrespective of REMOTE_USER
+      value to think that they process GET.
+
 Example:
 
     LoadModule intercept_form_submit_module modules/mod_intercept_form_submit.so
@@ -99,6 +107,7 @@ Example:
       InterceptFormClearRemoteUserForSkipped on
       InterceptFormPasswordRedact on
       InterceptFormLoginRealms EXAMPLE.COM LAB.EXAMPLE.COM ''
+      InterceptGETOnSuccess on
     </Location>
 
 The PAM service needs to be configured. For the above shown
@@ -149,7 +158,7 @@ is logged and authentication does not take place.
 License
 -------
 
-Copyright 2013--2014 Jan Pazdziora
+Copyright 2013--2016 Jan Pazdziora
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
