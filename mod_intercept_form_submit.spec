@@ -8,11 +8,12 @@
 Summary: Apache module to intercept login form submission and run PAM authentication
 Name: mod_intercept_form_submit
 Version: 1.1.0
-Release: 1%{?dist}
+Release: 7%{?dist}
 License: ASL 2.0
 Group: System Environment/Daemons
 URL: http://www.adelton.com/apache/mod_intercept_form_submit/
 Source0: http://www.adelton.com/apache/mod_intercept_form_submit/%{name}-%{version}.tar.gz
+BuildRequires: gcc
 BuildRequires: httpd-devel
 BuildRequires: pkgconfig
 Requires: httpd-mmn = %{_httpd_mmn}
@@ -62,6 +63,9 @@ install -Dp -m 0644 intercept_form_submit.confx $RPM_BUILD_ROOT%{_httpd_confdir}
 %{_httpd_moddir}/*.so
 
 %changelog
+* Fri Feb 23 2018 Jan Pazdziora <jpazdziora@redhat.com> - 1.1.0-7
+- https://fedoraproject.org/wiki/Packaging:C_and_C%2B%2B#BuildRequires_and_Requires
+
 * Wed Nov 23 2016 Jan Pazdziora <jpazdziora@redhat.com> - 1.1.0-1
 - Logging improvements.
 
