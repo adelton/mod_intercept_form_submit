@@ -20,4 +20,10 @@ curl --data 'something=somewhere&password=heslo1&something=else&login=user1' -si
 curl --data 'login=user1&password=heslo1' -si http://localhost/auth1r | tee /dev/stderr | grep -F -e 'REMOTE_USER=[user1]' -e 'login=user1&password=[REDACTED]' | wc -l | grep -q 2
 curl --data 'something=somewhere&password=heslo1&something=else&login=user1' -si http://localhost/auth1r | tee /dev/stderr | grep -F -e 'REMOTE_USER=[user1]' -e 'something=somewhere&password=[REDACTED]&something=else&login=user1' | wc -l | grep -q 2
 
+curl --data 'login=user1&password=heslo1' -si http://localhost/auth1s | tee /dev/stderr | grep -F -e 'REMOTE_USER=[user1]' -e 'login=user1&password=[REDACTED]' | wc -l | grep -q 2
+curl --data 'something=somewhere&password=heslo1&something=else&login=user1' -si http://localhost/auth1s | tee /dev/stderr | grep -F -e 'REMOTE_USER=[user1]' -e 'something=somewhere&password=[REDACTED]&something=else&login=user1' | wc -l | grep -q 2
+chage -d $(date -d -2days +%Y-%m-%d) -M  1 user1
+curl --data 'login=user1&password=heslo1' -si http://localhost/auth1s | tee /dev/stderr | grep -F -e 'HTTP/1.1 307 Temporary Redirect' -e 'Location: http://localhost/login?backurl=http%3a%2f%2flocalhost%2fauth1s&uid=user1' | wc -l | grep -q 2
+curl --data 'something=somewhere&password=heslo1&something=else&login=user1' -si http://localhost/auth1s | tee /dev/stderr | grep -F -e 'HTTP/1.1 307 Temporary Redirect' -e 'Location: http://localhost/login?backurl=http%3a%2f%2flocalhost%2fauth1s&uid=user1' | wc -l | grep -q 2
+
 echo OK $0.
