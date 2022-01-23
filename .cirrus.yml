@@ -1,0 +1,10 @@
+test_task:
+  arm_container:
+    matrix:
+      image: registry.fedoraproject.org/fedora:latest
+      image: quay.io/centos/centos:stream8
+      image: centos:centos7
+  build_script: tests/build.sh
+  config_script: tests/config.sh
+  run_httpd_background_script: /usr/sbin/httpd -DFOREGROUND
+  test_script: tests/run.sh

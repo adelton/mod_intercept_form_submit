@@ -1,0 +1,31 @@
+name: Build and test mod_intercept_form_submit
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '48 4 3,17 * *'
+
+jobs:
+  build:
+    name: Run tests in container
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - 'registry.fedoraproject.org/fedora:rawhide'
+          - 'registry.fedoraproject.org/fedora:latest'
+          - 'quay.io/centos/centos:stream8'
+          - 'registry.centos.org/centos:7'
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set the right OS in the Dockerfile
+        run: sed -i "s#^FROM.*#FROM ${{ matrix.os }}#" tests/Dockerfile
+      - name: Build image
+        run: docker build -t mod_intercept_form_submit -f tests/Dockerfile .
+      - name: Run container
+        run: docker run --name mod_intercept_form_submit --rm -d mod_intercept_form_submit
+      - name: Run tests in the container
+        run: docker exec mod_intercept_form_submit tests/run.sh
