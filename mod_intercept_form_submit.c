@@ -321,7 +321,6 @@ static apr_status_t intercept_form_submit_filter_prefetch(request_rec * r, ifs_c
 	ifs_filter_ctx_t * ctx = f->ctx;
 	if (! ctx) {
 		f->ctx = ctx = apr_pcalloc(r->pool, sizeof(ifs_filter_ctx_t));
-		ctx->cached_brigade = apr_brigade_create(f->c->pool, f->c->bucket_alloc);
 	}
 
 	char * login_value = NULL;
@@ -334,16 +333,15 @@ static apr_status_t intercept_form_submit_filter_prefetch(request_rec * r, ifs_c
 
 	authn_status out_status = AUTH_GENERAL_ERROR;
 
-	apr_bucket_brigade * bb = apr_brigade_create(f->c->pool, f->c->bucket_alloc);
+	ctx->cached_brigade = apr_brigade_create(f->c->pool, f->c->bucket_alloc);
 	int fetch_more = 1;
 	while (fetch_more) {
-		ctx->cached_ret = ap_get_brigade(f->next, bb, AP_MODE_READBYTES, APR_BLOCK_READ, HUGE_STRING_LEN);
+		ctx->cached_ret = ap_get_brigade(f->next, ctx->cached_brigade, AP_MODE_READBYTES, APR_BLOCK_READ, HUGE_STRING_LEN);
 		if (ctx->cached_ret != APR_SUCCESS)
 			break;
 
-		apr_bucket * b = APR_BRIGADE_FIRST(bb);
-		APR_BRIGADE_CONCAT(ctx->cached_brigade, bb);
-		for (; b != APR_BRIGADE_SENTINEL(ctx->cached_brigade); b = APR_BUCKET_NEXT(b)) {
+		for (apr_bucket * b = APR_BRIGADE_FIRST(ctx->cached_brigade);
+			b != APR_BRIGADE_SENTINEL(ctx->cached_brigade); b = APR_BUCKET_NEXT(b)) {
 			if (! fetch_more)
 				break;
 			if (APR_BUCKET_IS_EOS(b)) {
