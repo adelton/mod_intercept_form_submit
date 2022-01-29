@@ -205,6 +205,9 @@ static void intercept_form_redact_password(ap_filter_t * f, ifs_config * config)
 		if (b == APR_BRIGADE_SENTINEL(ctx->cached_brigade)) {
 			break;
 		}
+		if (APR_BUCKET_IS_EOS(b)) {
+			break;
+		}
 		if (APR_BUCKET_IS_METADATA(b))
 			continue;
 		const char * buffer;
