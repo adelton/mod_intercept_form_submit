@@ -377,6 +377,7 @@ static apr_status_t intercept_form_submit_filter_prefetch(request_rec * r, ifs_c
 					}
 					fragment = NULL;
 					fragment_length = 0;
+					fragment_start_bucket = NULL;
 				} else {
 					if (intercept_form_submit_process_buffer(f, config, &login_value, &password_value,
 						p, e - p, b, (p - buffer), &out_status)) {
