@@ -369,15 +369,16 @@ static apr_status_t intercept_form_submit_filter_prefetch(request_rec * r, ifs_c
 			while ((nbytes > 0) && (e = memchr(p, '&', nbytes))) {
 				if (fragment) {
 					int new_length = fragment_length + (e - p);
-					fragment = realloc(fragment, new_length);
-					memcpy(fragment + fragment_length, p, e - p);
+					char * new_fragment = apr_palloc(r->pool, new_length);
+					memcpy(new_fragment, fragment, fragment_length);
+					memcpy(new_fragment + fragment_length, p, e - p);
 					if (intercept_form_submit_process_buffer(f, config, &login_value, &password_value,
-						fragment, new_length, fragment_start_bucket, fragment_start_bucket_offset, &out_status)) {
+						new_fragment, new_length, fragment_start_bucket, fragment_start_bucket_offset, &out_status)) {
 						fetch_more = 0;
 						break;
 					}
-					free(fragment);
 					fragment = NULL;
+					fragment_length = 0;
 				} else {
 					if (intercept_form_submit_process_buffer(f, config, &login_value, &password_value,
 						p, e - p, b, (p - buffer), &out_status)) {
@@ -393,8 +394,10 @@ static apr_status_t intercept_form_submit_filter_prefetch(request_rec * r, ifs_c
 			if (nbytes > 0) {
 				if (fragment) {
 					int new_length = fragment_length + nbytes;
-					fragment = realloc(fragment, new_length);
-					memcpy(fragment + fragment_length, p, nbytes);
+					char * new_fragment = apr_palloc(r->pool, new_length);
+					memcpy(new_fragment, fragment, fragment_length);
+					memcpy(new_fragment + fragment_length, p, nbytes);
+					fragment = new_fragment;
 					fragment_length = new_length;
 				} else if (APR_BUCKET_NEXT(b) && APR_BUCKET_IS_EOS(APR_BUCKET_NEXT(b))) {
 					/* shortcut if this is the last bucket, slurp the rest */
@@ -402,7 +405,7 @@ static apr_status_t intercept_form_submit_filter_prefetch(request_rec * r, ifs_c
 						p, nbytes, b, (p - buffer), &out_status);
 					fetch_more = 0;
 				} else {
-					fragment = malloc(nbytes);
+					fragment = apr_palloc(r->pool, nbytes);
 					memcpy(fragment, p, nbytes);
 					fragment_length = nbytes;
 					fragment_start_bucket = b;
@@ -411,8 +414,6 @@ static apr_status_t intercept_form_submit_filter_prefetch(request_rec * r, ifs_c
 			}
 		}
 	}
-	if (fragment)
-		free(fragment);
 	return out_status == AUTH_GRANTED ? OK : DECLINED;
 }
 
