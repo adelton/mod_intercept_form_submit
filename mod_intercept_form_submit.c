@@ -192,7 +192,7 @@ static void intercept_form_redact_password(ap_filter_t * f, ifs_config * config)
 	}
 	char * new_password_data = apr_pstrcat(r->pool, config->password_name, "=", _REDACTED_STRING, NULL);
 	int new_password_data_length = strlen(new_password_data);
-	apr_bucket * new_b = apr_bucket_immortal_create(new_password_data, new_password_data_length, f->c->bucket_alloc);
+	apr_bucket * new_b = apr_bucket_pool_create(new_password_data, new_password_data_length, r->pool, f->c->bucket_alloc);
 	APR_BUCKET_INSERT_BEFORE(b, new_b);
 
 	int password_remove_length = 0;
