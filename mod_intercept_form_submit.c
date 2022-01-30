@@ -96,59 +96,16 @@ static void register_pam_authenticate_with_login_password_fn(void) {
 	pam_authenticate_with_login_password_fn = APR_RETRIEVE_OPTIONAL_FN(pam_authenticate_with_login_password);
 }
 
-static int hex2char(int c) {
-	if (c >= '0' && c <= '9')
-		return c - '0';
-	if (c >= 'a' && c <= 'z')
-		return c - 'a' + 10;
-	if (c >= 'A' && c <= 'Z')
-		return c - 'A' + 10;
-	return -1;
-}
-
 static char * intercept_form_submit_process_keyval(apr_pool_t * pool, const char * name,
 	const char * key, int key_len, const char * val, int val_len) {
 	if (val_len == 0)
 		return NULL;
-	int i;
-	for (i = 0; i < key_len; i++, name++) {
-		if (*name == '\0')
-			return NULL;
-		int c = key[i];
-		if (c == '+')
-			c = ' ';
-		else if (c == '%') {
-			if (i > key_len - 3)
-				return NULL;
-			int m = hex2char(key[++i]);
-			int n = hex2char(key[++i]);
-			if (m < 0 || n < 0)
-				return NULL;
-			c = (m << 4) + n;
-		}
-		if (c != *name)
-			return NULL;
-	}
-	if (*name != '\0')
+	char * x_key = apr_pstrndup(pool, key, key_len);
+	ap_unescape_urlencoded(x_key);
+	if (strcmp(name, x_key))
 		return NULL;
-	char * ret = apr_palloc(pool, val_len + 1);
-	char * p = ret;
-	for (i = 0; i < val_len; i++, p++) {
-		if (val[i] == '+')
-			*p = ' ';
-		else if (val[i] == '%') {
-			if (i > val_len - 3)
-				return NULL;
-			int m = hex2char(val[++i]);
-			int n = hex2char(val[++i]);
-			if (m < 0 || n < 0)
-				return NULL;
-			*p = (m << 4) + n;
-		} else {
-			*p = val[i];
-		}
-	}
-	*p = '\0';
+	char * ret = apr_pstrndup(pool, val, val_len);
+	ap_unescape_urlencoded(ret);
 	return ret;
 }
 
