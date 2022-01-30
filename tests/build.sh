@@ -12,8 +12,8 @@ if type dnf 2> /dev/null ; then
 	BUILDDEP='dnf builddep'
 fi
 
-$DNF install -y rpm-build "$BUILDDEP_PROVIDER"
-$BUILDDEP -y mod_intercept_form_submit.spec
+$DNF install -y --setopt=install_weak_deps=False rpm-build "$BUILDDEP_PROVIDER"
+$BUILDDEP -y --setopt=install_weak_deps=False mod_intercept_form_submit.spec
 NAME_VERSION=$( rpm -q --qf '%{name}-%{version}\n' --specfile mod_intercept_form_submit.spec | head -1 )
 mkdir .$NAME_VERSION
 cp -rp * .$NAME_VERSION
