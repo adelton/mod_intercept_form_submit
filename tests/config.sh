@@ -10,6 +10,8 @@ chmod a+x /var/log/httpd
 cp tests/auth.conf /etc/httpd/conf.d/
 useradd user1
 echo user1:heslo1 | chpasswd
+useradd bob
+echo 'bob:Bobovo heslo' | chpasswd
 
 NAME='liška'
 if ! useradd --badname "$NAME" 2> /dev/null ; then

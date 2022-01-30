@@ -17,6 +17,7 @@ curl --data '' -si http://localhost/auth1 | tee /dev/stderr | grep -F 'REMOTE_US
 curl --data 'login=user1&password=heslox' -si http://localhost/auth1 | tee /dev/stderr | grep -F -e 'REMOTE_USER=[]' -e 'EXTERNAL_AUTH_ERROR=[Authentication failure]' | wc -l | grep -q 2
 curl --data 'login=user2&password=heslox' -si http://localhost/auth1 | tee /dev/stderr | grep -F -e 'REMOTE_USER=[]' -e 'EXTERNAL_AUTH_ERROR=[User not known to the underlying authentication module]' | wc -l | grep -q 2
 curl --data 'login=user1&password=heslo1' -si http://localhost/auth1 | tee /dev/stderr | grep -F -e 'REMOTE_USER=[user1]' -e 'login=user1&password=heslo1' | wc -l | grep -q 2
+curl --data 'login=bob&password=Bobovo+heslo' -si http://localhost/auth1 | tee /dev/stderr | grep -F -e 'REMOTE_USER=[bob]' -e 'login=bob&password=Bobovo+heslo' | wc -l | grep -q 2
 NAME='liška'
 XNAME='li%c5%a1ka'
 if ! getent passwd "$NAME" ; then
@@ -29,6 +30,8 @@ curl --data 'something=somewhere&password=heslo1&something=else&login=user1' -si
 curl --data 'login=user1&password=heslo1' -si http://localhost/auth1r | tee /dev/stderr | grep -F -e 'REMOTE_USER=[user1]' -e 'login=user1&password=[REDACTED]' | wc -l | grep -q 2
 curl --data 'password=xheslo&login=user1&something=extra' -si http://localhost/auth1r | tee /dev/stderr | grep -F -e 'REMOTE_USER=[]' -e 'EXTERNAL_AUTH_ERROR=[Authentication failure]' -e 'password=[REDACTED]&login=user1&something=extra' | wc -l | grep -q 3
 curl --data 'something=somewhere&password=heslo1&something=else&login=user1' -si http://localhost/auth1r | tee /dev/stderr | grep -F -e 'REMOTE_USER=[user1]' -e 'something=somewhere&password=[REDACTED]&something=else&login=user1' | wc -l | grep -q 2
+curl --data 'login=bob&password=Bobovo heslo' -si http://localhost/auth1r | tee /dev/stderr | grep -F -e 'REMOTE_USER=[]' -e 'login=bob&password=Bobovo heslo' | wc -l | grep -q 2
+curl --data 'login=bob&password=Ne Bobovo heslo' -si http://localhost/auth1r | tee /dev/stderr | grep -F -e 'REMOTE_USER=[]' -e 'login=bob&password=Ne Bobovo heslo' | wc -l | grep -q 2
 
 curl --data 'login=user1&password=heslo1' -si http://localhost/auth1s | tee /dev/stderr | grep -F -e 'REMOTE_USER=[user1]' -e 'login=user1&password=[REDACTED]' | wc -l | grep -q 2
 curl --data 'something=somewhere&password=heslo1&something=else&login=user1' -si http://localhost/auth1s | tee /dev/stderr | grep -F -e 'REMOTE_USER=[user1]' -e 'something=somewhere&password=[REDACTED]&something=else&login=user1' | wc -l | grep -q 2
