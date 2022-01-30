@@ -181,6 +181,10 @@ static void intercept_form_redact_password(ap_filter_t * f, ifs_config * config)
 	ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, SHOW_MODULE "will redact password (value of %s) in the POST data", config->password_name);
 	ifs_filter_ctx_t * ctx = f->ctx;
 	apr_bucket * b = ctx->password_fragment_start_bucket;
+	if (! b) {
+		ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, SHOW_MODULE "the input got processed from the cached_brigade (possibly by ap_send_error_response), no redacting possible");
+		return;
+	}
 	int fragment_start_bucket_offset = ctx->password_fragment_start_bucket_offset;
 	if (fragment_start_bucket_offset) {
 		apr_bucket_split(b, fragment_start_bucket_offset);
@@ -304,6 +308,7 @@ static apr_status_t intercept_form_submit_filter(ap_filter_t * f, apr_bucket_bri
 		APR_BRIGADE_CONCAT(bb, ctx->cached_brigade);
 		apr_brigade_cleanup(ctx->cached_brigade);
 		ctx->cached_brigade = NULL;
+		ctx->password_fragment_start_bucket = NULL;
 		return ctx->cached_ret;
 	}
 	return ap_get_brigade(f->next, bb, mode, block, readbytes);
