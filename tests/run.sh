@@ -26,6 +26,7 @@ curl --data "login=$XNAME&password=myši+& zaj%c3%adci" -si http://localhost/aut
 curl --data "login=$XNAME&password=myši %26%20zaj%c3%adci" -si http://localhost/auth1 | tee /dev/stderr | grep -F -e "REMOTE_USER=[$NAME]" -e "login=$XNAME&password=myši %26%20zaj%c3%adci" | wc -l | grep -q 2
 curl --data 'something=somewhere&password=heslo1&something=else&login=user1' -si http://localhost/auth1 | tee /dev/stderr | grep -F -e 'REMOTE_USER=[user1]' -e 'something=somewhere&password=heslo1&something=else&login=user1' | wc -l | grep -q 2
 curl --data 'login=user1&password=heslo1' -si http://localhost/auth1r | tee /dev/stderr | grep -F -e 'REMOTE_USER=[user1]' -e 'login=user1&password=[REDACTED]' | wc -l | grep -q 2
+curl --data 'password=xheslo&login=user1&something=extra' -si http://localhost/auth1r | tee /dev/stderr | grep -F -e 'REMOTE_USER=[]' -e 'password=[REDACTED]&login=user1&something=extra' | wc -l | grep -q 2
 curl --data 'something=somewhere&password=heslo1&something=else&login=user1' -si http://localhost/auth1r | tee /dev/stderr | grep -F -e 'REMOTE_USER=[user1]' -e 'something=somewhere&password=[REDACTED]&something=else&login=user1' | wc -l | grep -q 2
 
 curl --data 'login=user1&password=heslo1' -si http://localhost/auth1s | tee /dev/stderr | grep -F -e 'REMOTE_USER=[user1]' -e 'login=user1&password=[REDACTED]' | wc -l | grep -q 2
