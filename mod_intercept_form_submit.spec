@@ -34,7 +34,7 @@ the REMOTE_USER environment variable if the authentication passes.
 %setup -q -n %{name}-%{version}
 
 %build
-%{_httpd_apxs} -c -Wc,"%{optflags} -Wall -pedantic -std=c99" mod_intercept_form_submit.c
+%{_httpd_apxs} -c -Wc,"%{optflags} -Wall -Werror -pedantic -std=c99" mod_intercept_form_submit.c
 %if "%{_httpd_modconfdir}" != "%{_httpd_confdir}"
 echo > intercept_form_submit.confx
 echo "# Load the module in %{_httpd_modconfdir}/55-intercept_form_submit.conf" >> intercept_form_submit.confx
