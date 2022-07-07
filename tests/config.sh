@@ -21,3 +21,7 @@ fi
 echo "$NAME:myši & zajíci" | chpasswd
 chgrp apache /etc/shadow
 chmod g+r /etc/shadow
+# In dist-git / Fedora CI testing, we also need the proper SELinux configuration
+if selinuxenabled ; then
+	setsebool allow_httpd_mod_auth_pam 1
+fi
