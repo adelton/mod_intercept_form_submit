@@ -207,7 +207,7 @@ static void intercept_form_redact_password(ap_filter_t * f, ifs_config * config)
 
 static int intercept_form_submit_process_buffer(ap_filter_t * f, ifs_config * config, char ** login_value, char ** password_value,
 	const char * buffer, int buffer_length, apr_bucket * fragment_start_bucket, int fragment_start_bucket_offset, authn_status * out_status) {
-	char * sep = memchr(buffer, '=', buffer_length);
+	const char * sep = memchr(buffer, '=', buffer_length);
 	if (! sep) {
 		return 0;
 	}
